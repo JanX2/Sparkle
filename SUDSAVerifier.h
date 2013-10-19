@@ -2,17 +2,25 @@
 //  SUDSAVerifier.h
 //  Sparkle
 //
-//  Created by Andy Matuschak on 3/16/06.
-//  Copyright 2006 Andy Matuschak. All rights reserved.
+//  Created by Zach Waldowski on 10/18/13.
+//  Copyright (c) 2013 Big Nerd Ranch. All rights reserved.
+//
+//  Includes code from Plop by Mark Hamlin.
+//  Copyright (c) 2011 Mark Hamlin. All rights reserved.
 //
 
-#ifndef SUDSAVERIFIER_H
-#define SUDSAVERIFIER_H
+#import <Foundation/Foundation.h>
 
-#import <Cocoa/Cocoa.h>
+@interface SUDSAVerifier : NSObject
 
-@interface SUDSAVerifier : NSObject {}
 + (BOOL)validatePath:(NSString *)path withEncodedDSASignature:(NSString *)encodedSignature withPublicDSAKey:(NSString *)pkeyString;
-@end
 
-#endif
+- (instancetype)initWithPublicKeyString:(NSString *)string;
+- (instancetype)initWithPublicKey:(NSData *)data;
+
+@property (nonatomic, readonly) SecKeyRef publicKey;
+
+- (BOOL)verifySignature:(NSData *)signature ofItemAtPath:(NSString *)path;
+- (BOOL)verifySignature:(NSData *)signature withStream:(NSInputStream *)stream;
+
+@end
