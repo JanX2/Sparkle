@@ -30,19 +30,12 @@
 
 - (NSString *)description { return [NSString stringWithFormat:@"%@ <%@>", [self class], archivePath]; }
 
-- (void)setDelegate:del
-{
-	delegate = del;
-}
-
 - (void)start
 {
 	// No-op
 }
 
 #pragma mark - Private
-
-
 
 - (id)initWithPath:(NSString *)path host:(SUHost *)host
 {
@@ -61,20 +54,21 @@
 
 - (void)notifyDelegateOfExtractedLength:(NSNumber *)length
 {
+	id <SUUnarchiverDelegate> delegate = self.delegate;
 	if ([delegate respondsToSelector:@selector(unarchiver:extractedLength:)])
 		[delegate unarchiver:self extractedLength:[length unsignedLongValue]];
 }
 
 - (void)notifyDelegateOfSuccess
 {
-	if ([delegate respondsToSelector:@selector(unarchiverDidFinish:)])
-		[delegate performSelector:@selector(unarchiverDidFinish:) withObject:self];
+	id <SUUnarchiverDelegate> delegate = self.delegate;
+	[delegate unarchiverDidFinish:self];
 }
 
 - (void)notifyDelegateOfFailure
 {
-	if ([delegate respondsToSelector:@selector(unarchiverDidFail:)])
-		[delegate performSelector:@selector(unarchiverDidFail:) withObject:self];
+	id <SUUnarchiverDelegate> delegate = self.delegate;
+	[delegate unarchiverDidFail:self];
 }
 
 static NSMutableArray *gUnarchiverImplementations;
@@ -88,7 +82,7 @@ static NSMutableArray *gUnarchiverImplementations;
 
 + (NSArray *)unarchiverImplementations
 {
-	return [NSArray arrayWithArray:gUnarchiverImplementations];
+	return [gUnarchiverImplementations copy];
 }
 
 @end

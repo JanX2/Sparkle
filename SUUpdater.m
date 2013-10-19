@@ -119,21 +119,26 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 
 -(void)	notifyWillShowModalAlert
 {
-	if( [delegate respondsToSelector: @selector(updaterWillShowModalAlert:)] )
+	id <SUUpdaterDelegate> delegate = self.delegate;
+	if( [delegate respondsToSelector: @selector(updaterWillShowModalAlert:)] ) {
 		[delegate updaterWillShowModalAlert: self];
+	}
 }
 
 
 -(void)	notifyDidShowModalAlert
 {
-	if( [delegate respondsToSelector: @selector(updaterDidShowModalAlert:)] )
+	id <SUUpdaterDelegate> delegate = self.delegate;
+	if( [delegate respondsToSelector: @selector(updaterDidShowModalAlert:)] ) {
 		[delegate updaterDidShowModalAlert: self];
+	}
 }
 
 
 - (void)startUpdateCycle
 {
     BOOL shouldPrompt = NO;
+	id <SUUpdaterDelegate> delegate = self.delegate;
     
 	// If the user has been asked about automatic checks, don't bother prompting
 	if ([host objectForUserDefaultsKey:SUEnableAutomaticChecksKey])
@@ -169,8 +174,14 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 		// Always say we're sending the system profile here so that the delegate displays the parameters it would send.
 		if ([delegate respondsToSelector:@selector(feedParametersForUpdater:sendingSystemProfile:)]) 
 			profileInfo = [profileInfo arrayByAddingObjectsFromArray:[delegate feedParametersForUpdater:self sendingSystemProfile:YES]];
-        [SUUpdatePermissionPrompt promptWithHost:host systemProfile:profileInfo delegate:self];
-        // We start the update checks and register as observer for changes after the prompt finishes
+		
+		// We start the update checks and register as observer for changes after the prompt finishes
+        [SUUpdatePermissionPrompt promptWithHost:host systemProfile:profileInfo completion:^(SUPermissionPromptResult result) {
+			[self setAutomaticallyChecksForUpdates:(result == SUAutomaticallyCheck)];
+			// Schedule checks, but make sure we ignore the delayed call from KVO
+			[self resetUpdateCycle];
+
+		}];
 	}
     else 
     {
@@ -181,9 +192,6 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 
 - (void)updatePermissionPromptFinishedWithResult:(SUPermissionPromptResult)result
 {
-	[self setAutomaticallyChecksForUpdates:(result == SUAutomaticallyCheck)];
-    // Schedule checks, but make sure we ignore the delayed call from KVO
-	[self resetUpdateCycle];
 }
 
 - (void)updateDriverDidFinish:(NSNotification *)note
@@ -234,29 +242,31 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 
 -(void)	checkForUpdatesInBgReachabilityCheckWithDriver: (SUUpdateDriver*)inDriver /* RUNS ON ITS OWN THREAD */
 {
-	NS_DURING
-		// This method *must* be called on its own thread. SCNetworkReachabilityCheckByName
-		//	can block, and it can be waiting a long time on slow networks, and we
-		//	wouldn't want to beachball the main thread for a background operation.
-		// We could use asynchronous reachability callbacks, but those aren't
-		//	reliable enough and can 'get lost' sometimes, which we don't want.
-		
-		@autoreleasepool {
+	@autoreleasepool {
+		@try {
+			// This method *must* be called on its own thread. SCNetworkReachabilityCheckByName
+			//	can block, and it can be waiting a long time on slow networks, and we
+			//	wouldn't want to beachball the main thread for a background operation.
+			// We could use asynchronous reachability callbacks, but those aren't
+			//	reliable enough and can 'get lost' sometimes, which we don't want.
+
 			SCNetworkConnectionFlags flags = 0;
 			BOOL isNetworkReachable = YES;
 			
 			// Don't perform automatic checks on unconnected laptops or dial-up connections that aren't online:
 			NSMutableDictionary*		theDict = [NSMutableDictionary dictionary];
-			[self performSelectorOnMainThread: @selector(putFeedURLIntoDictionary:) withObject: theDict waitUntilDone: YES];	// Get feed URL on main thread, it's not safe to call elsewhere.
+			dispatch_sync(dispatch_get_main_queue(), ^{
+				[self putFeedURLIntoDictionary:theDict];
+			});
 			
 			const char *hostname = [[[theDict objectForKey: @"feedURL"] host] cStringUsingEncoding: NSUTF8StringEncoding];
 			SCNetworkReachabilityRef reachability = SCNetworkReachabilityCreateWithName(NULL, hostname);
-        Boolean reachabilityResult = NO;
-        // If the feed's using a file:// URL, we won't be able to use reachability.
-        if (reachability != NULL) {
-            SCNetworkReachabilityGetFlags(reachability, &flags);
-            CFRelease(reachability);
-        }
+			Boolean reachabilityResult = NO;
+			// If the feed's using a file:// URL, we won't be able to use reachability.
+			if (reachability != NULL) {
+				SCNetworkReachabilityGetFlags(reachability, &flags);
+				CFRelease(reachability);
+			}
 			
 			if( reachabilityResult )
 			{
@@ -270,14 +280,16 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 					isNetworkReachable = NO;
 			}
 			
-        // If the network's not reachable, we pass a nil driver into checkForUpdatesWithDriver, which will then reschedule the next update so we try again later.    
-        [self performSelectorOnMainThread: @selector(checkForUpdatesWithDriver:) withObject: isNetworkReachable ? inDriver : nil waitUntilDone: NO];
-		
+			// If the network's not reachable, we pass a nil driver into checkForUpdatesWithDriver, which will then reschedule the next update so we try again later.
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[self checkForUpdatesWithDriver:(isNetworkReachable ? inDriver : nil)];
+			});
 		}
-	NS_HANDLER
-		SULog(@"UNCAUGHT EXCEPTION IN UPDATE CHECK TIMER: %@",[localException reason]);
-		// Don't propagate the exception beyond here. In Carbon apps that would trash the stack.
-	NS_ENDHANDLER
+		@catch (NSException *exception) {
+			SULog(@"UNCAUGHT EXCEPTION IN UPDATE CHECK TIMER: %@",[exception reason]);
+			// Don't propagate the exception beyond here. In Carbon apps that would trash the stack.
+		}
+	}
 }
 
 
@@ -286,15 +298,19 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 	// Background update checks should only happen if we have a network connection.
 	//	Wouldn't want to annoy users on dial-up by establishing a connection every
 	//	hour or so:
-	SUUpdateDriver *	theUpdateDriver = [[([self automaticallyDownloadsUpdates] ? [SUAutomaticUpdateDriver class] : [SUScheduledUpdateDriver class]) alloc] initWithUpdater:self];
-	
-	[NSThread detachNewThreadSelector: @selector(checkForUpdatesInBgReachabilityCheckWithDriver:) toTarget: self withObject: theUpdateDriver];
+	BOOL automaticallyDownloads = [self automaticallyDownloadsUpdates];
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		Class updateDriver = (automaticallyDownloads ? [SUAutomaticUpdateDriver class] : [SUScheduledUpdateDriver class]);
+		SUUpdateDriver *theUpdateDriver = [[updateDriver alloc] initWithUpdater:self];
+		[self checkForUpdatesInBgReachabilityCheckWithDriver:theUpdateDriver];
+	});
 }
 
 
 - (BOOL)mayUpdateAndRestart
 {
-	return( !delegate || ![delegate respondsToSelector: @selector(updaterShouldRelaunchApplication:)] || [delegate updaterShouldRelaunchApplication: self] );
+	id <SUUpdaterDelegate> delegate = self.delegate;
+	return (delegate && [delegate respondsToSelector: @selector(updaterShouldRelaunchApplication:)]  && [delegate updaterShouldRelaunchApplication: self]);
 }
 
 - (IBAction)checkForUpdates: (id)sender
@@ -311,6 +327,8 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 {
 	if ([self updateInProgress]) { return; }
 	if (checkTimer) { [checkTimer invalidate];  checkTimer = nil; }		// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
+	
+	id <SUUpdaterDelegate> delegate = self.delegate;
 	
 	SUClearLog();
 	SULog( @"===== %@ =====", [[NSFileManager defaultManager] displayNameAtPath: [[NSBundle mainBundle] bundlePath]] );
@@ -430,6 +448,7 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 {
 	// A value in the user defaults overrides one in the Info.plist (so preferences panels can be created wherein users choose between beta / release feeds).
 	NSString *appcastString = [host objectForKey:SUFeedURLKey];
+	id <SUUpdaterDelegate> delegate = self.delegate;
 	if( [delegate respondsToSelector: @selector(feedURLStringForUpdater:)] )
 		appcastString = [delegate feedURLStringForUpdater: self];
 	if (!appcastString) // Can't find an appcast string!
@@ -474,6 +493,7 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 - (NSURL *)parameterizedFeedURL
 {
 	NSURL *baseFeedURL = [self feedURL];
+	id <SUUpdaterDelegate> delegate = self.delegate;
 	
 	// Determine all the parameters we're attaching to the base feed URL.
 	BOOL sendingSystemProfile = [self sendsSystemProfile];
@@ -545,17 +565,11 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 	return YES;
 }
 
-- (void)setDelegate:aDelegate
-{
-	delegate = aDelegate;
-}
-
 - (BOOL)updateInProgress
 {
 	return driver && ([driver finished] == NO);
 }
 
-- (id)delegate { return delegate; }
 - (NSBundle *)hostBundle { return [host bundle]; }
 
 @end

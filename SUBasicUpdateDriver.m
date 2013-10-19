@@ -21,7 +21,9 @@
 #import "SUCodeSigningVerifier.h"
 #import "SUUpdater_Private.h"
 
-@interface SUBasicUpdateDriver () <NSURLDownloadDelegate>; @end
+@interface SUBasicUpdateDriver () <NSURLDownloadDelegate, SUAppcastDelegate, SUUnarchiverDelegate>
+
+@end
 
 
 @implementation SUBasicUpdateDriver

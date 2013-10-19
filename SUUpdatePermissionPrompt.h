@@ -16,24 +16,26 @@ typedef enum {
 	SUDoNotAutomaticallyCheck
 } SUPermissionPromptResult;
 
-@class SUHost;
+@class SUHost, SUUpdatePermissionPrompt;
+
+@protocol SUUpdatePermissionPromptDelegate <NSObject>
+
+- (void)updatePermissionPromptFinishedWithResult:(SUPermissionPromptResult)result;
+
+@end
+
 @interface SUUpdatePermissionPrompt : SUWindowController {
 	SUHost *host;
 	NSArray *systemProfileInformationArray;
-	id delegate;
 	IBOutlet NSTextField *descriptionTextField;
 	IBOutlet NSView *moreInfoView;
 	IBOutlet NSButton *moreInfoButton;
     IBOutlet NSTableView *profileTableView;
 	BOOL isShowingMoreInfo, shouldSendProfile;
 }
-+ (void)promptWithHost:(SUHost *)aHost systemProfile:(NSArray *)profile delegate:(id)d;
++ (void)promptWithHost:(SUHost *)aHost systemProfile:(NSArray *)profile completion:(void(^)(SUPermissionPromptResult))block;
 - (IBAction)toggleMoreInfo:(id)sender;
 - (IBAction)finishPrompt:(id)sender;
-@end
-
-@interface NSObject (SUUpdatePermissionPromptDelegateInformalProtocol)
-- (void)updatePermissionPromptFinishedWithResult:(SUPermissionPromptResult)result;
 @end
 
 #endif

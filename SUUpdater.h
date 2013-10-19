@@ -12,75 +12,16 @@
 #import "SUVersionComparisonProtocol.h"
 #import "SUVersionDisplayProtocol.h"
 
-@class SUUpdateDriver, SUAppcastItem, SUHost, SUAppcast;
-
-@interface SUUpdater : NSObject
-{
-@private
-	NSTimer *checkTimer;
-	SUUpdateDriver *driver;
-
-	NSString *customUserAgentString;
-	SUHost *host;
-	IBOutlet id delegate;
-}
-
-+ (SUUpdater *)sharedUpdater;
-+ (SUUpdater *)updaterForBundle:(NSBundle *)bundle;
-- (id)initForBundle:(NSBundle *)bundle;
-
-- (NSBundle *)hostBundle;
-
-- (void)setDelegate:(id)delegate;
-- (id)delegate;
-
-- (void)setAutomaticallyChecksForUpdates:(BOOL)automaticallyChecks;
-- (BOOL)automaticallyChecksForUpdates;
-
-- (void)setUpdateCheckInterval:(NSTimeInterval)interval;
-- (NSTimeInterval)updateCheckInterval;
-
-- (void)setFeedURL:(NSURL *)feedURL;
-- (NSURL *)feedURL;	// *** MUST BE CALLED ON MAIN THREAD ***
-
-- (void)setUserAgentString:(NSString *)userAgent;
-- (NSString *)userAgentString;
-
-- (void)setSendsSystemProfile:(BOOL)sendsSystemProfile;
-- (BOOL)sendsSystemProfile;
-
-- (void)setAutomaticallyDownloadsUpdates:(BOOL)automaticallyDownloadsUpdates;
-- (BOOL)automaticallyDownloadsUpdates;
-
-// This IBAction is meant for a main menu item. Hook up any menu item to this action,
-// and Sparkle will check for updates and report back its findings verbosely.
-- (IBAction)checkForUpdates:(id)sender;
-
-// This kicks off an update meant to be programmatically initiated. That is, it will display no UI unless it actually finds an update,
-// in which case it proceeds as usual. If the fully automated updating is turned on, however, this will invoke that behavior, and if an
-// update is found, it will be downloaded and prepped for installation.
-- (void)checkForUpdatesInBackground;
-
-// Date of last update check. Returns nil if no check has been performed.
-- (NSDate*)lastUpdateCheckDate;
-
-// This begins a "probing" check for updates which will not actually offer to update to that version. The delegate methods, though,
-// (up to updater:didFindValidUpdate: and updaterDidNotFindUpdate:), are called, so you can use that information in your UI.
-- (void)checkForUpdateInformation;
-
-// Call this to appropriately schedule or cancel the update checking timer according to the preferences for time interval and automatic checks. This call does not change the date of the next check, but only the internal NSTimer.
-- (void)resetUpdateCycle;
-
-- (BOOL)updateInProgress;
-
-@end
-
+@class SUUpdater, SUUpdateDriver, SUAppcastItem, SUHost, SUAppcast;
 
 // -----------------------------------------------------------------------------
 //	SUUpdater Delegate:
 // -----------------------------------------------------------------------------
 
-@interface NSObject (SUUpdaterDelegateInformalProtocol)
+
+@protocol SUUpdaterDelegate <NSObject>
+
+@optional
 
 // Use this to keep Sparkle from popping up e.g. while your setup assistant is showing:
 - (BOOL)updaterMayCheckForUpdates:(SUUpdater *)bundle;
@@ -140,6 +81,64 @@
 
 @end
 
+@interface SUUpdater : NSObject
+{
+@private
+	NSTimer *checkTimer;
+	SUUpdateDriver *driver;
+
+	NSString *customUserAgentString;
+	SUHost *host;
+}
+
++ (SUUpdater *)sharedUpdater;
++ (SUUpdater *)updaterForBundle:(NSBundle *)bundle;
+- (id)initForBundle:(NSBundle *)bundle;
+
+- (NSBundle *)hostBundle;
+
+@property (nonatomic, weak) IBOutlet id <SUUpdaterDelegate> delegate;
+
+- (void)setAutomaticallyChecksForUpdates:(BOOL)automaticallyChecks;
+- (BOOL)automaticallyChecksForUpdates;
+
+- (void)setUpdateCheckInterval:(NSTimeInterval)interval;
+- (NSTimeInterval)updateCheckInterval;
+
+- (void)setFeedURL:(NSURL *)feedURL;
+- (NSURL *)feedURL;	// *** MUST BE CALLED ON MAIN THREAD ***
+
+- (void)setUserAgentString:(NSString *)userAgent;
+- (NSString *)userAgentString;
+
+- (void)setSendsSystemProfile:(BOOL)sendsSystemProfile;
+- (BOOL)sendsSystemProfile;
+
+- (void)setAutomaticallyDownloadsUpdates:(BOOL)automaticallyDownloadsUpdates;
+- (BOOL)automaticallyDownloadsUpdates;
+
+// This IBAction is meant for a main menu item. Hook up any menu item to this action,
+// and Sparkle will check for updates and report back its findings verbosely.
+- (IBAction)checkForUpdates:(id)sender;
+
+// This kicks off an update meant to be programmatically initiated. That is, it will display no UI unless it actually finds an update,
+// in which case it proceeds as usual. If the fully automated updating is turned on, however, this will invoke that behavior, and if an
+// update is found, it will be downloaded and prepped for installation.
+- (void)checkForUpdatesInBackground;
+
+// Date of last update check. Returns nil if no check has been performed.
+- (NSDate*)lastUpdateCheckDate;
+
+// This begins a "probing" check for updates which will not actually offer to update to that version. The delegate methods, though,
+// (up to updater:didFindValidUpdate: and updaterDidNotFindUpdate:), are called, so you can use that information in your UI.
+- (void)checkForUpdateInformation;
+
+// Call this to appropriately schedule or cancel the update checking timer according to the preferences for time interval and automatic checks. This call does not change the date of the next check, but only the internal NSTimer.
+- (void)resetUpdateCycle;
+
+- (BOOL)updateInProgress;
+
+@end
 
 // -----------------------------------------------------------------------------
 //	Constants:

@@ -17,23 +17,22 @@
 
 #import "SUConstants.h"
 
+@interface SUUpdateAlert ()
 
-@interface WebView (SUTenFiveProperty)
-
--(void)	setDrawsBackground: (BOOL)state;
+@property (nonatomic, copy) void(^completionBlock)(SUUpdateAlertChoice);
 
 @end
 
-
 @implementation SUUpdateAlert
 
-- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)aHost
+- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)aHost completion:(void (^)(SUUpdateAlertChoice))block
 {
 	self = [super initWithHost:host windowNibName:@"SUUpdateAlert"];
 	if (self)
 	{
 		host = aHost;
 		updateItem = item;
+		self.completionBlock = block;
 		[self setShouldCascadeWindows:NO];
 		
 		// Alex: This dummy line makes sure that the binary is linked against WebKit.
@@ -59,8 +58,9 @@
 	[releaseNotesView setPolicyDelegate:nil];
 	[releaseNotesView removeFromSuperview]; // Otherwise it gets sent Esc presses (why?!) and gets very confused.
 	[self close];
-	if ([delegate respondsToSelector:@selector(updateAlert:finishedWithChoice:)])
-		[delegate updateAlert:self finishedWithChoice:choice];
+	if (self.completionBlock) {
+		self.completionBlock(choice);
+	}
 }
 
 - (IBAction)installUpdate: (id)sender
@@ -137,10 +137,6 @@
 	BOOL		allowAutoUpdates = YES;	// Defaults to YES.
 	if( [host objectForInfoDictionaryKey:SUAllowsAutomaticUpdatesKey] )
 		allowAutoUpdates = [host boolForInfoDictionaryKey: SUAllowsAutomaticUpdatesKey];
-	
-	// UK 2007-08-31: Give delegate a chance to modify this choice:
-	if( delegate && [delegate respondsToSelector: @selector(updateAlert:shouldAllowAutoUpdate:)] )
-		[delegate updateAlert: self shouldAllowAutoUpdate: &allowAutoUpdates];
 	
 	return allowAutoUpdates;
 }
@@ -340,11 +336,6 @@
 	}
 	
 	return webViewMenuItems;
-}
-
-- (void)setDelegate:del
-{
-	delegate = del;
 }
 
 @end

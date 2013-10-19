@@ -12,18 +12,20 @@
 #import <Cocoa/Cocoa.h>
 #import "SUVersionComparisonProtocol.h"
 
-@class SUHost;
-@interface SUInstaller : NSObject { }
-+ (NSString *)  appPathInUpdateFolder:(NSString *)updateFolder forHost:(SUHost *)host;
-+ (void)		installFromUpdateFolder:(NSString *)updateFolder overHost:(SUHost *)host installationPath:(NSString *)installationPath delegate:delegate synchronously:(BOOL)synchronously versionComparator:(id <SUVersionComparison>)comparator;
-+ (void)		finishInstallationToPath:(NSString *)installationPath withResult:(BOOL)result host:(SUHost *)host error:(NSError *)error delegate:delegate;
-+ (NSString*)	updateFolder;
-+ (void)		notifyDelegateOfFailure: (NSDictionary*)dict;
-@end
+@class SUInstaller, SUHost;
 
-@interface NSObject (SUInstallerDelegateInformalProtocol)
+@protocol SUInstallerDelegate <NSObject>
+
 - (void)installerFinishedForHost:(SUHost *)host;
 - (void)installerForHost:(SUHost *)host failedWithError:(NSError *)error;
+
+@end
+
+@interface SUInstaller : NSObject
++ (NSString *)  appPathInUpdateFolder:(NSString *)updateFolder forHost:(SUHost *)host;
++ (void)		installFromUpdateFolder:(NSString *)updateFolder overHost:(SUHost *)host installationPath:(NSString *)installationPath delegate:(id <SUInstallerDelegate>)delegate synchronously:(BOOL)synchronously versionComparator:(id <SUVersionComparison>)comparator;
++ (void)		finishInstallationToPath:(NSString *)installationPath withResult:(BOOL)result host:(SUHost *)host error:(NSError *)error delegate:(id <SUInstallerDelegate>)delegate;
++ (NSString*)	updateFolder;
 @end
 
 #endif

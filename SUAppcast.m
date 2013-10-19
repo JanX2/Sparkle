@@ -47,8 +47,8 @@
 - (void)fetchAppcastFromURL:(NSURL *)url
 {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:30.0];
-    if (userAgentString)
-        [request setValue:userAgentString forHTTPHeaderField:@"User-Agent"];
+    if (self.userAgentString)
+        [request setValue:self.userAgentString forHTTPHeaderField:@"User-Agent"];
             
     download = [[NSURLDownload alloc] initWithRequest:request delegate:self];
 }
@@ -194,10 +194,12 @@
 	if (failed)
     {
         [self reportError:[NSError errorWithDomain:SUSparkleErrorDomain code:SUAppcastParseError userInfo:[NSDictionary dictionaryWithObjectsAndKeys:SULocalizedString(@"An error occurred while parsing the update feed.", nil), NSLocalizedDescriptionKey, nil]]];
-	}
-    else if ([delegate respondsToSelector:@selector(appcastDidFinishLoading:)])
-    {
-        [delegate appcastDidFinishLoading:self];
+	} else {
+		id <SUAppcastDelegate> delegate = self.delegate;
+		if ([delegate respondsToSelector:@selector(appcastDidFinishLoading:)])
+		{
+			[delegate appcastDidFinishLoading:self];
+		}
 	}
 }
 
@@ -219,6 +221,7 @@
 
 - (void)reportError:(NSError *)error
 {
+	id <SUAppcastDelegate> delegate = self.delegate;
 	if ([delegate respondsToSelector:@selector(appcast:failedToLoadWithError:)])
 	{
 		[delegate appcast:self failedToLoadWithError:[NSError errorWithDomain:SUSparkleErrorDomain code:SUAppcastError userInfo:[NSDictionary dictionaryWithObjectsAndKeys:SULocalizedString(@"An error occurred in retrieving update information. Please try again later.", nil), NSLocalizedDescriptionKey, [error localizedDescription], NSLocalizedFailureReasonErrorKey, nil]]];
@@ -248,19 +251,6 @@
     if (i == NSNotFound)
         i = 0;
     return [nodes objectAtIndex:i];
-}
-
-- (void)setUserAgentString:(NSString *)uas
-{
-	if (uas != userAgentString)
-	{
-		userAgentString = [uas copy];
-	}
-}
-
-- (void)setDelegate:del
-{
-	delegate = del;
 }
 
 @end

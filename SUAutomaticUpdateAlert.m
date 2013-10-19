@@ -10,15 +10,21 @@
 
 #import "SUHost.h"
 
+@interface SUAutomaticUpdateAlert ()
+
+@property (nonatomic, copy) void(^completionBlock)(SUAutomaticInstallationChoice);
+
+@end
+
 @implementation SUAutomaticUpdateAlert
 
-- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)aHost delegate:del;
+- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)aHost completion:(void (^)(SUAutomaticInstallationChoice))block
 {
 	self = [super initWithHost:aHost windowNibName:@"SUAutomaticUpdateAlert"];
 	if (self)
 	{
 		updateItem = item;
-		delegate = del;
+		self.completionBlock = block;
 		host = aHost;
 		[self setShouldCascadeWindows:NO];	
 		[[self window] center];
@@ -32,19 +38,25 @@
 - (IBAction)installNow:sender
 {
 	[self close];
-	[delegate automaticUpdateAlert:self finishedWithChoice:SUInstallNowChoice];
+	if (self.completionBlock) {
+		self.completionBlock(SUInstallNowChoice);
+	}
 }
 
 - (IBAction)installLater:sender
 {
 	[self close];
-	[delegate automaticUpdateAlert:self finishedWithChoice:SUInstallLaterChoice];
+	if (self.completionBlock) {
+		self.completionBlock(SUInstallLaterChoice);
+	}
 }
 
 - (IBAction)doNotInstall:sender
 {
 	[self close];
-	[delegate automaticUpdateAlert:self finishedWithChoice:SUDoNotInstallChoice];
+	if (self.completionBlock) {
+		self.completionBlock(SUDoNotInstallChoice);
+	}
 }
 
 - (NSImage *)applicationIcon

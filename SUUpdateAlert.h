@@ -22,10 +22,10 @@ typedef enum
 } SUUpdateAlertChoice;
 
 @class WebView, SUAppcastItem, SUHost;
+
 @interface SUUpdateAlert : SUWindowController {
 	SUAppcastItem *updateItem;
 	SUHost *host;
-	id delegate;
 	id<SUVersionDisplay>	versionDisplayer;
 	
 	IBOutlet WebView *releaseNotesView;
@@ -37,8 +37,7 @@ typedef enum
 	BOOL webViewFinishedLoading;
 }
 
-- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)host;
-- (void)setDelegate:delegate;
+- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)host completion:(void(^)(SUUpdateAlertChoice))block;
 
 - (IBAction)installUpdate:sender;
 - (IBAction)skipThisVersion:sender;
@@ -46,11 +45,6 @@ typedef enum
 
 - (void)setVersionDisplayer: (id<SUVersionDisplay>)disp;
 
-@end
-
-@interface NSObject (SUUpdateAlertDelegate)
-- (void)updateAlert:(SUUpdateAlert *)updateAlert finishedWithChoice:(SUUpdateAlertChoice)updateChoice;
-- (void)updateAlert:(SUUpdateAlert *)updateAlert shouldAllowAutoUpdate: (BOOL*)shouldAllowAutoUpdate;
 @end
 
 #endif

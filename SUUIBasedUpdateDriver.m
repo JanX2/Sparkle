@@ -19,8 +19,34 @@
 
 - (void)didFindValidUpdate
 {
-	updateAlert = [[SUUpdateAlert alloc] initWithAppcastItem:updateItem host:host];
-	[updateAlert setDelegate:self];
+	updateAlert = [[SUUpdateAlert alloc] initWithAppcastItem:updateItem host:host completion:^(SUUpdateAlertChoice choice) {
+		updateAlert = nil;
+		[host setObject:nil forUserDefaultsKey:SUSkippedVersionKey];
+		switch (choice)
+		{
+			case SUInstallUpdateChoice:
+				statusController = [[SUStatusController alloc] initWithHost:host];
+				[statusController beginActionWithTitle:SULocalizedString(@"Downloading update...", @"Take care not to overflow the status window.") maxProgressValue:0.0 statusText:nil];
+				[statusController setButtonTitle:SULocalizedString(@"Cancel", nil) target:self action:@selector(cancelDownload:) isDefault:NO];
+				[statusController showWindow:self];
+				[self downloadUpdate];
+				break;
+				
+			case SUOpenInfoURLChoice:
+				[[NSWorkspace sharedWorkspace] openURL: [updateItem infoURL]];
+				[self abortUpdate];
+				break;
+				
+			case SUSkipThisVersionChoice:
+				[host setObject:[updateItem versionString] forUserDefaultsKey:SUSkippedVersionKey];
+				[self abortUpdate];
+				break;
+				
+			case SURemindMeLaterChoice:
+				[self abortUpdate];
+				break;			
+		}
+	}];
 	
 	id<SUVersionDisplay>	versDisp = nil;
 	if ([[updater delegate] respondsToSelector:@selector(versionDisplayerForUpdater:)])
@@ -60,36 +86,6 @@
 {
 	[[updateAlert window] makeKeyAndOrderFront:self];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:@"NSApplicationDidBecomeActiveNotification" object:NSApp];
-}
-
-- (void)updateAlert:(SUUpdateAlert *)alert finishedWithChoice:(SUUpdateAlertChoice)choice
-{
-	updateAlert = nil;
-	[host setObject:nil forUserDefaultsKey:SUSkippedVersionKey];
-	switch (choice)
-	{
-		case SUInstallUpdateChoice:
-			statusController = [[SUStatusController alloc] initWithHost:host];
-			[statusController beginActionWithTitle:SULocalizedString(@"Downloading update...", @"Take care not to overflow the status window.") maxProgressValue:0.0 statusText:nil];
-			[statusController setButtonTitle:SULocalizedString(@"Cancel", nil) target:self action:@selector(cancelDownload:) isDefault:NO];
-			[statusController showWindow:self];	
-			[self downloadUpdate];
-			break;
-		
-		case SUOpenInfoURLChoice:
-			[[NSWorkspace sharedWorkspace] openURL: [updateItem infoURL]];
-			[self abortUpdate];
-			break;
-		
-		case SUSkipThisVersionChoice:
-			[host setObject:[updateItem versionString] forUserDefaultsKey:SUSkippedVersionKey];
-			[self abortUpdate];
-			break;
-			
-		case SURemindMeLaterChoice:
-			[self abortUpdate];
-			break;			
-	}			
 }
 
 - (void)download:(NSURLDownload *)download didReceiveResponse:(NSURLResponse *)response
@@ -157,17 +153,15 @@
 	[NSApp requestUserAttention:NSInformationalRequest];	
 }
 
-- (void)unarchiver:(SUUnarchiver *)unarchiver requiresPasswordReturnedViaInvocation:(NSInvocation *)invocation
+- (void)unarchiver:(SUUnarchiver *)unarchiver requiresPasswordWithCompletion:(void(^)(NSString *password))completionBlock
 {
     SUPasswordPrompt *prompt = [[SUPasswordPrompt alloc] initWithHost:host];
     NSString *password = nil;
-    if([prompt run]) 
+    if([prompt run])
     {
         password = [prompt password];
     }
-    [invocation setArgument:&password atIndex:2];
-	[invocation retainArguments];
-    [invocation invoke];
+	completionBlock(password);
 }
 
 - (void)installAndRestart: (id)sender

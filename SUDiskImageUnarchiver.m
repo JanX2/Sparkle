@@ -22,12 +22,19 @@
 // Called on a non-main thread.
 - (void)extractDMG
 {
-	
 	@autoreleasepool {
     
         NSData *result = [NTSynchronousTask task:@"/usr/bin/hdiutil" directory:@"/" withArgs:[NSArray arrayWithObjects: @"isencrypted", archivePath, nil] input:NULL];
-	if([self isEncrypted:result] && [delegate respondsToSelector:@selector(unarchiver:requiresPasswordReturnedViaInvocation:)]) {
-            [self performSelectorOnMainThread:@selector(requestPasswordFromDelegate) withObject:nil waitUntilDone:NO];
+		
+		id <SUUnarchiverDelegate> delegate = self.delegate;
+		if ([[self class] isEncrypted:result] && [delegate respondsToSelector:@selector(unarchiver:requiresPasswordWithCompletion:)]) {
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[delegate unarchiver:self requiresPasswordWithCompletion:^(NSString *password) {
+					dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+						[self extractDMGWithPassword:password];
+					});
+				}];
+			});
         } else {
             [self extractDMGWithPassword:nil];
         }
@@ -50,7 +57,10 @@
 		};
 		
 		void (^reportError)(void) = ^{
-			[self performSelectorOnMainThread:@selector(notifyDelegateOfFailure) withObject:nil waitUntilDone:NO];
+			
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[self notifyDelegateOfFailure];
+			});
 			
 			cleanup();
 		};
@@ -102,8 +112,15 @@
 
         if (taskResult != 0) {
             NSString *resultStr = output ? [[NSString alloc] initWithData:output encoding:NSUTF8StringEncoding] : nil;
-            if (password != nil && [resultStr rangeOfString:@"Authentication error"].location != NSNotFound && [delegate respondsToSelector:@selector(unarchiver:requiresPasswordReturnedViaInvocation:)]) {
-                [self performSelectorOnMainThread:@selector(requestPasswordFromDelegate) withObject:nil waitUntilDone:NO];
+			id <SUUnarchiverDelegate> delegate = self.delegate;
+            if (password != nil && [resultStr rangeOfString:@"Authentication error"].location != NSNotFound && [delegate respondsToSelector:@selector(unarchiver:requiresPasswordWithCompletion:)]) {
+				dispatch_async(dispatch_get_main_queue(), ^{
+					[delegate unarchiver:self requiresPasswordWithCompletion:^(NSString *retPassword) {
+						dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+							[self extractDMGWithPassword:retPassword];
+						});
+					}];
+				});
 				cleanup();
             } else {
                 SULog(@"hdiutil failed with code: %d data: <<%@>>", taskResult, resultStr);
@@ -141,8 +158,10 @@
 				return;
 			}
 		}
-
-        [self performSelectorOnMainThread:@selector(notifyDelegateOfSuccess) withObject:nil waitUntilDone:NO];
+		
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[self notifyDelegateOfSuccess];
+		});
 		
 		cleanup();
     }
@@ -150,7 +169,9 @@
 
 - (void)start
 {
-	[NSThread detachNewThreadSelector:@selector(extractDMG) toTarget:self withObject:nil];
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		[self extractDMG];
+	});
 }
 
 + (void)load
@@ -158,32 +179,19 @@
 	[self registerImplementation:self];
 }
 
-- (BOOL)isEncrypted:(NSData*)resultData
++ (BOOL)isEncrypted:(NSData*)resultData
 {
-	BOOL result = NO;
-	if(resultData)
-	{
-		NSString *data = [NSString stringWithCString:(char*)[resultData bytes] encoding:NSUTF8StringEncoding];
-		if (!NSEqualRanges([data rangeOfString:@"passphrase-count"], NSMakeRange(NSNotFound, 0))) 
-		{
-			result = YES;
-		}
+	if (!resultData) {
+		return NO;
 	}
-	return result;
-}
-
-- (void)requestPasswordFromDelegate
-{
-    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[self methodSignatureForSelector:@selector(continueWithPassword:)]];
-    [invocation setSelector:@selector(continueWithPassword:)];
-    [invocation setTarget:self];
-    [invocation retainArguments];
-    [delegate unarchiver:self requiresPasswordReturnedViaInvocation:invocation];
-}
-
-- (void)continueWithPassword:(NSString *)password
-{
-    [NSThread detachNewThreadSelector:@selector(extractDMGWithPassword:) toTarget:self withObject:password];
+	
+	NSString *data = [[NSString alloc] initWithBytesNoCopy:(char *)[resultData bytes] length:(char *)[resultData length] encoding:NSUTF8StringEncoding freeWhenDone:NO];
+	if (!NSEqualRanges([data rangeOfString:@"passphrase-count"], NSMakeRange(NSNotFound, 0)))
+	{
+		return YES;
+	}
+	
+	return NO;
 }
 
 @end

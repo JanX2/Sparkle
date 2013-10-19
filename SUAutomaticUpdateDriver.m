@@ -16,7 +16,24 @@
 
 - (void)unarchiverDidFinish:(SUUnarchiver *)ua
 {
-	alert = [[SUAutomaticUpdateAlert alloc] initWithAppcastItem:updateItem host:host delegate:self];
+	alert = [[SUAutomaticUpdateAlert alloc] initWithAppcastItem:updateItem host:host completion:^(SUAutomaticInstallationChoice choice) {
+		switch (choice)
+		{
+			case SUInstallNowChoice:
+				[self installWithToolAndRelaunch:YES];
+				break;
+				
+			case SUInstallLaterChoice:
+				postponingInstallation = YES;
+				[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillTerminate:) name:NSApplicationWillTerminateNotification object:nil];
+				break;
+				
+			case SUDoNotInstallChoice:
+				[host setObject:[updateItem versionString] forUserDefaultsKey:SUSkippedVersionKey];
+				[self abortUpdate];
+				break;
+		}
+	}];
 	
 	// If the app is a menubar app or the like, we need to focus it first and alter the
 	// update prompt to behave like a normal window. Otherwise if the window were hidden
@@ -37,26 +54,6 @@
 {
 	[[alert window] makeKeyAndOrderFront:self];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:@"NSApplicationDidBecomeActiveNotification" object:NSApp];
-}
-
-- (void)automaticUpdateAlert:(SUAutomaticUpdateAlert *)aua finishedWithChoice:(SUAutomaticInstallationChoice)choice;
-{
-	switch (choice)
-	{
-		case SUInstallNowChoice:
-			[self installWithToolAndRelaunch:YES];
-			break;
-			
-		case SUInstallLaterChoice:
-			postponingInstallation = YES;
-			[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillTerminate:) name:NSApplicationWillTerminateNotification object:nil];
-			break;
-
-		case SUDoNotInstallChoice:
-			[host setObject:[updateItem versionString] forUserDefaultsKey:SUSkippedVersionKey];
-			[self abortUpdate];
-			break;
-	}
 }
 
 - (BOOL)shouldInstallSynchronously { return postponingInstallation; }

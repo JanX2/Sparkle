@@ -9,26 +9,31 @@
 #ifndef SUUNARCHIVER_H
 #define SUUNARCHIVER_H
 
-@class SUHost;
+@class SUUnarchiver, SUHost;
+
+@protocol SUUnarchiverDelegate <NSObject>
+
+- (void)unarchiverDidFinish:(SUUnarchiver *)unarchiver;
+- (void)unarchiverDidFail:(SUUnarchiver *)unarchiver;
+
+@optional
+
+- (void)unarchiver:(SUUnarchiver *)unarchiver extractedLength:(unsigned long)length;
+- (void)unarchiver:(SUUnarchiver *)unarchiver requiresPasswordWithCompletion:(void(^)(NSString *password))completionBlock;
+
+@end
 
 @interface SUUnarchiver : NSObject {
-	id delegate;
 	NSString *archivePath;
 	SUHost *updateHost;
 }
 
 + (SUUnarchiver *)unarchiverForPath:(NSString *)path updatingHost:(SUHost *)host;
-- (void)setDelegate:delegate;
+
+@property (nonatomic, weak) id <SUUnarchiverDelegate> delegate;
 
 - (void)start;
 
-@end
-
-@interface NSObject (SUUnarchiverDelegate)
-- (void)unarchiver:(SUUnarchiver *)unarchiver extractedLength:(unsigned long)length;
-- (void)unarchiverDidFinish:(SUUnarchiver *)unarchiver;
-- (void)unarchiverDidFail:(SUUnarchiver *)unarchiver;
-- (void)unarchiver:(SUUnarchiver *)unarchiver requiresPasswordReturnedViaInvocation:(NSInvocation *)invocation;
 @end
 
 #endif

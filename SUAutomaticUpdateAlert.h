@@ -19,21 +19,17 @@ typedef enum
 } SUAutomaticInstallationChoice;
 
 @class SUAppcastItem, SUHost;
+
 @interface SUAutomaticUpdateAlert : SUWindowController {
 	SUAppcastItem *updateItem;
-	id delegate;
 	SUHost *host;
 }
 
-- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)hostBundle delegate:delegate;
+- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)hostBundle completion:(void(^)(SUAutomaticInstallationChoice))block;
 - (IBAction)installNow:sender;
 - (IBAction)installLater:sender;
 - (IBAction)doNotInstall:sender;
 
-@end
-
-@interface NSObject (SUAutomaticUpdateAlertDelegateProtocol)
-- (void)automaticUpdateAlert:(SUAutomaticUpdateAlert *)aua finishedWithChoice:(SUAutomaticInstallationChoice)choice;
 @end
 
 #endif

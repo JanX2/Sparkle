@@ -11,6 +11,12 @@
 #import "SUHost.h"
 #import "SUConstants.h"
 
+@interface SUUpdatePermissionPrompt ()
+
+@property (nonatomic, copy) void(^completionBlock)(SUPermissionPromptResult);
+
+@end
+
 @implementation SUUpdatePermissionPrompt
 
 - (BOOL)shouldAskAboutProfile
@@ -18,13 +24,12 @@
 	return [[host objectForInfoDictionaryKey:SUEnableSystemProfilingKey] boolValue];
 }
 
-- (id)initWithHost:(SUHost *)aHost systemProfile:(NSArray *)profile delegate:(id)d
+- (id)initWithHost:(SUHost *)aHost systemProfile:(NSArray *)profile
 {
 	self = [super initWithHost:aHost windowNibName:@"SUUpdatePermissionPrompt"];
 	if (self)
 	{
 		host = aHost;
-		delegate = d;
 		isShowingMoreInfo = NO;
 		shouldSendProfile = [self shouldAskAboutProfile];
 		systemProfileInformationArray = profile;
@@ -33,14 +38,16 @@
 	return self;
 }
 
-+ (void)promptWithHost:(SUHost *)aHost systemProfile:(NSArray *)profile delegate:(id)d
++ (void)promptWithHost:(SUHost *)aHost systemProfile:(NSArray *)profile completion:(void (^)(SUPermissionPromptResult))block
 {
 	// If this is a background application we need to focus it in order to bring the prompt
 	// to the user's attention. Otherwise the prompt would be hidden behind other applications and
 	// the user would not know why the application was paused.
 	if ([aHost isBackgroundApplication]) { [NSApp activateIgnoringOtherApps:YES]; }
 	
-	id prompt = [[[self class] alloc] initWithHost:aHost systemProfile:profile delegate:d];
+	SUUpdatePermissionPrompt *prompt = [[[self class] alloc] initWithHost:aHost systemProfile:profile];
+	prompt.completionBlock = block;
+		
 	[NSApp runModalForWindow:[prompt window]];
 }
 
@@ -119,10 +126,10 @@
 
 - (IBAction)finishPrompt:(id)sender
 {
-	if (![delegate respondsToSelector:@selector(updatePermissionPromptFinishedWithResult:)])
-		[NSException raise:@"SUInvalidDelegate" format:@"SUUpdatePermissionPrompt's delegate (%@) doesn't respond to updatePermissionPromptFinishedWithResult:!", delegate];
+	if (!self.completionBlock)
+		[NSException raise:@"SUInvalidDelegate" format:@"SUUpdatePermissionPrompt wasn't provided a completion block!"];
 	[host setBool:shouldSendProfile forUserDefaultsKey:SUSendProfileInfoKey];
-	[delegate updatePermissionPromptFinishedWithResult:([sender tag] == 1 ? SUAutomaticallyCheck : SUDoNotAutomaticallyCheck)];
+	self.completionBlock(([sender tag] == 1 ? SUAutomaticallyCheck : SUDoNotAutomaticallyCheck));
 	[[self window] close];
 	[NSApp stopModal];
 }

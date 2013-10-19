@@ -11,9 +11,10 @@
 
 #import <Cocoa/Cocoa.h>
 #import "SUUpdateDriver.h"
+#import "SUUnarchiver.h"
 
-@class SUAppcastItem, SUUnarchiver, SUAppcast, SUUnarchiver, SUHost;
-@interface SUBasicUpdateDriver : SUUpdateDriver {
+@class SUAppcastItem, SUAppcast, SUUnarchiver, SUHost;
+@interface SUBasicUpdateDriver : SUUpdateDriver <SUUnarchiverDelegate> {
 	SUAppcastItem *updateItem;
 	SUAppcastItem *nonDeltaUpdateItem;
 	
@@ -42,8 +43,6 @@
 - (void)download:(NSURLDownload *)download didFailWithError:(NSError *)error;
 
 - (void)extractUpdate;
-- (void)unarchiverDidFinish:(SUUnarchiver *)ua;
-- (void)unarchiverDidFail:(SUUnarchiver *)ua;
 - (void)failedToApplyDeltaUpdate;
 
 - (void)installWithToolAndRelaunch:(BOOL)relaunch;
