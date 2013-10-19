@@ -27,17 +27,21 @@
 		NSString *targetPath = [[archivePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:[sourcePath lastPathComponent]];
 
 		int result = applyBinaryDelta(sourcePath, targetPath, archivePath);
-		if (!result)
-			[self performSelectorOnMainThread:@selector(notifyDelegateOfSuccess) withObject:nil waitUntilDone:NO];
-		else
-			[self performSelectorOnMainThread:@selector(notifyDelegateOfFailure) withObject:nil waitUntilDone:NO];
-
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (result) {
+				[self notifyDelegateOfSuccess];
+			} else {
+				[self notifyDelegateOfFailure];
+			}
+		});
 	}
 }
 
 - (void)start
 {
-	[NSThread detachNewThreadSelector:@selector(applyBinaryDelta) toTarget:self withObject:nil];
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		[self applyBinaryDelta];
+	});
 }
 
 + (void)load

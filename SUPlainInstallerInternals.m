@@ -207,7 +207,9 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
 		if (res)
 		{
 			SULog(@"releaseFromQuarantine");
-			[self performSelectorOnMainThread:@selector(releaseFromQuarantine:) withObject:src waitUntilDone:YES];
+			dispatch_sync(dispatch_get_main_queue(), ^{
+				[self releaseFromQuarantine:src];
+			});
 		}
 		
 		if( res )	// Set permissions while it's still in source, so we have it with working and correct perms when it arrives at destination.
@@ -263,7 +265,9 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
         if (res)
 		{
 			SULog(@"releaseFromQuarantine after installing");
-			[self performSelectorOnMainThread:@selector(releaseFromQuarantine:) withObject:dst waitUntilDone:YES];
+			dispatch_sync(dispatch_get_main_queue(), ^{
+				[self releaseFromQuarantine:dst];
+			});
 		}
 
 		if (!res)
@@ -510,7 +514,9 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
 	// new home in case it's moved across filesystems: if that
 	// happens, the move is actually a copy, and it may result
 	// in the application being quarantined.
-	[self performSelectorOnMainThread:@selector(releaseFromQuarantine:) withObject:dst waitUntilDone:YES];
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		[self releaseFromQuarantine:dst];
+	});
 	
 	return YES;
 }

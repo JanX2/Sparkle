@@ -52,11 +52,11 @@
 	return NO;
 }
 
-- (void)notifyDelegateOfExtractedLength:(NSNumber *)length
+- (void)notifyDelegateOfExtractedLength:(unsigned long)length
 {
 	id <SUUnarchiverDelegate> delegate = self.delegate;
 	if ([delegate respondsToSelector:@selector(unarchiver:extractedLength:)])
-		[delegate unarchiver:self extractedLength:[length unsignedLongValue]];
+		[delegate unarchiver:self extractedLength:length];
 }
 
 - (void)notifyDelegateOfSuccess

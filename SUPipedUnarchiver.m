@@ -10,65 +10,109 @@
 #import "SUUnarchiver_Private.h"
 #import "SULog.h"
 
-
 @implementation SUPipedUnarchiver
 
-+ (SEL)selectorConformingToTypeOfPath:(NSString *)path
++ (NSString *)commandConformingToTypeOfPath:(NSString *)path
 {
-	static NSDictionary *typeSelectorDictionary;
-	if (!typeSelectorDictionary)
-		typeSelectorDictionary = [NSDictionary dictionaryWithObjectsAndKeys:@"extractZIP", @".zip", @"extractTAR", @".tar",
-								   @"extractTGZ", @".tar.gz", @"extractTGZ", @".tgz",
-								   @"extractTBZ", @".tar.bz2", @"extractTBZ", @".tbz", nil];
-
+	NSString *extractZIP = @"ditto -x -k - \"$DESTINATION\"";
+	NSString *extractTAR = @"tar -xC \"$DESTINATION\"";
+	NSString *extractTBZ = @"tar -jxC \"$DESTINATION\"";
+	NSString *extractTGZ = @"tar -zxC \"$DESTINATION\"";
+	
+	NSDictionary *typeSelectorDictionary = @{
+											 @".zip": extractZIP,
+											 @".tar": extractTAR,
+											 @".tar.gz": extractTGZ,
+											 @".tgz": extractTGZ,
+											 @".tar.bz2": extractTBZ,
+											 @".tbz": extractTBZ
+											 };
+	
 	NSString *lastPathComponent = [path lastPathComponent];
-	NSEnumerator *typeEnumerator = [typeSelectorDictionary keyEnumerator];
-	id currentType;
-	while ((currentType = [typeEnumerator nextObject]))
-	{
-		if ([currentType length] > [lastPathComponent length]) continue;
-		if ([[lastPathComponent substringFromIndex:[lastPathComponent length] - [currentType length]] isEqualToString:currentType])
-			return NSSelectorFromString([typeSelectorDictionary objectForKey:currentType]);
-	}
-	return NULL;
+	__block NSString *ret = NULL;
+	[typeSelectorDictionary enumerateKeysAndObjectsUsingBlock:^(NSString *currentType, dispatch_block_t obj, BOOL *stop) {
+		if ([currentType length] > [lastPathComponent length]) return;
+		if ([[lastPathComponent substringFromIndex:[lastPathComponent length] - [currentType length]] isEqualToString:currentType]) {
+			ret = obj;
+			*stop = YES;
+		}
+	}];
+	return ret;
+}
+
+- (dispatch_block_t)extractorConformingToTypeOfPath:(NSString *)path
+{
+	NSString *command = [[self class] commandConformingToTypeOfPath:path];
+	if (!command) return NULL;
+	return  ^{
+		[self extractArchivePipingDataToCommand:command];
+	};
 }
 
 - (void)start
 {
-	[NSThread detachNewThreadSelector:[[self class] selectorConformingToTypeOfPath:archivePath] toTarget:self withObject:nil];
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [self extractorConformingToTypeOfPath:archivePath]);
 }
 
 + (BOOL)canUnarchivePath:(NSString *)path
 {
-	return ([self selectorConformingToTypeOfPath:path] != nil);
+	return ([self commandConformingToTypeOfPath:path] != nil);
 }
 
 // This method abstracts the types that use a command line tool piping data from stdin.
 - (void)extractArchivePipingDataToCommand:(NSString *)command
 {
 	// *** GETS CALLED ON NON-MAIN THREAD!!!
-	
-
 	@autoreleasepool {
-		FILE *fp = NULL, *cmdFP = NULL;
-    char *oldDestinationString = NULL;
+		
+		
+		__block FILE *fp = NULL, *cmdFP = NULL;
+		__block char *oldDestinationString = NULL;
+
+		void(^cleanup)(void) = ^{
+			if (fp) {
+				close(fp);
+				fp = NULL;
+			}
+			
+			if (oldDestinationString) {
+				setenv("DESTINATION", oldDestinationString, 1);
+			} else {
+				unsetenv("DESTINATION");
+			}
+		};
+		
+		void (^reportError)(void) = ^{
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[self notifyDelegateOfFailure];
+			});
+			cleanup();
+		};
 		
 		SULog(@"Extracting %@ using '%@'",archivePath,command);
     
 		// Get the file size.
 		NSNumber *fs = [[[NSFileManager defaultManager] attributesOfItemAtPath:archivePath error:NULL] objectForKey:NSFileSize];
-		if (fs == nil) goto reportError;
+		if (fs == nil) {
+			reportError();
+			return;
+		}
 		
 		// Thank you, Allan Odgaard!
 		// (who wrote the following extraction alg.)
 		fp = fopen([archivePath fileSystemRepresentation], "r");
-		if (!fp) goto reportError;
+		if (!fp) {
+			
+		}
 		
-    oldDestinationString = getenv("DESTINATION");
+		oldDestinationString = getenv("DESTINATION");
 		setenv("DESTINATION", [[archivePath stringByDeletingLastPathComponent] fileSystemRepresentation], 1);
 		cmdFP = popen([command fileSystemRepresentation], "w");
 		size_t written;
-		if (!cmdFP) goto reportError;
+		if (!cmdFP) {
+			reportError();
+			return;
+		}
 		
 		char buf[32*1024];
 		size_t len;
@@ -78,29 +122,24 @@
 			if( written < len )
 			{
 				pclose(cmdFP);
-				goto reportError;
+				reportError();
+				return;
 			}
-				
-			[self performSelectorOnMainThread:@selector(notifyDelegateOfExtractedLength:) withObject:[NSNumber numberWithUnsignedLong:len] waitUntilDone:NO];
+			
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[self notifyDelegateOfExtractedLength:len];
+			});
 		}
 		pclose(cmdFP);
 		
-		if( ferror( fp ) )
-			goto reportError;
-		
-		[self performSelectorOnMainThread:@selector(notifyDelegateOfSuccess) withObject:nil waitUntilDone:NO];
-		goto finally;
-		
-reportError:
-		[self performSelectorOnMainThread:@selector(notifyDelegateOfFailure) withObject:nil waitUntilDone:NO];
-		
-finally:
-		if (fp)
-			fclose(fp);
-    if (oldDestinationString)
-        setenv("DESTINATION", oldDestinationString, 1);
-    else
-        unsetenv("DESTINATION");
+		if( ferror( fp ) ) {
+			reportError();
+		} else {
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[self notifyDelegateOfSuccess];
+			});
+			cleanup();
+		}
 	}
 }
 

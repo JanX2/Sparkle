@@ -50,11 +50,13 @@ static NSString * const SUInstallerInstallationPathKey = @"SUInstallerInstallati
 		}
 		NSMutableDictionary *mutableInfo = [info mutableCopy];
 		[mutableInfo setObject:[NSNumber numberWithBool:result] forKey:SUInstallerResultKey];
-    [mutableInfo setObject:installationPath forKey:SUInstallerInstallationPathKey];
+		[mutableInfo setObject:installationPath forKey:SUInstallerInstallationPathKey];
 		if (!result && error)
 			[mutableInfo setObject:error forKey:SUInstallerErrorKey];
-		[self performSelectorOnMainThread:@selector(finishInstallationWithInfo:) withObject:mutableInfo waitUntilDone:NO];
-    
+		
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[self finishInstallationWithInfo:info];
+		});
 	}
 }
 
@@ -74,10 +76,13 @@ static NSString * const SUInstallerInstallationPathKey = @"SUInstallerInstallati
     NSString *targetPath = [host installationPath];
     NSString *tempName = [self temporaryNameForPath:targetPath];
 	NSDictionary *info = [NSDictionary dictionaryWithObjectsAndKeys:path, SUInstallerPathKey, targetPath, SUInstallerTargetPathKey, tempName, SUInstallerTempNameKey, host, SUInstallerHostKey, delegate, SUInstallerDelegateKey, installationPath, SUInstallerInstallationPathKey, nil];
-	if (synchronously)
+	if (synchronously) {
 		[self performInstallationWithInfo:info];
-	else
-		[NSThread detachNewThreadSelector:@selector(performInstallationWithInfo:) toTarget:self withObject:info];
+	} else {
+		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+			[self performInstallationWithInfo:info];
+		});
+	}
 }
 
 @end
