@@ -38,22 +38,9 @@ NSString *SUPackageInstallerInstallationPathKey = @"SUPackageInstallerInstallati
 
 + (void)performInstallationToPath:(NSString *)installationPath fromPath:(NSString *)path host:(SUHost *)host delegate:delegate synchronously:(BOOL)synchronously versionComparator:(id <SUVersionComparison>)comparator
 {
-	NSString *command;
-	NSArray *args;
-	
-	if (floor(NSAppKitVersionNumber) == NSAppKitVersionNumber10_4) {
-		// 10.4 uses Installer.app because the "open" command in 10.4 doesn't support -W and -n
-		command = [[NSBundle bundleWithIdentifier:@"com.apple.installer"] executablePath];
-		args = [NSArray arrayWithObjects:path, nil];
-	} else {
-		// 10.5 and later. Run installer using the "open" command to ensure it is launched in front of current application.
-		// The -W and -n options were added to the 'open' command in 10.5
-		// -W = wait until the app has quit.
-		// -n = Open another instance if already open.
-		// -b = app bundle identifier
-		command = @"/usr/bin/open";
-		args = [NSArray arrayWithObjects:@"-W", @"-n", @"-b", @"com.apple.installer", path, nil];
-	}
+	NSString *command = @"/usr/bin/open";
+	NSArray *args = [NSArray arrayWithObjects:@"-W", @"-n", @"-b", @"com.apple.installer", path, nil];
+
 	if (![[NSFileManager defaultManager] fileExistsAtPath:command])
 	{
 		NSError *error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUMissingInstallerToolError userInfo:[NSDictionary dictionaryWithObject:@"Couldn't find Apple's installer tool!" forKey:NSLocalizedDescriptionKey]];

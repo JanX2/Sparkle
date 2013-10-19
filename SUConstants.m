@@ -55,3 +55,15 @@ OSStatus SUMissingInstallerToolError = 4003;
 OSStatus SURelaunchError = 4004;
 OSStatus SUInstallationError = 4005;
 OSStatus SUDowngradeError = 4006;
+
+static NSString *const SUBundleIdentifier = @"org.andymatuschak.Sparkle";
+
+inline NSBundle *SUBundle(void)
+{
+	return [NSBundle bundleWithIdentifier:SUBundleIdentifier] ?: [NSBundle mainBundle];
+}
+
+inline NSString *SULocalizedString(NSString *key, NSString *__unused comment)
+{
+	return [SUBundle() localizedStringForKey:key value:@"" table:@"Sparkle"];
+}

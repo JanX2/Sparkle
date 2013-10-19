@@ -447,7 +447,7 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 	if (customUserAgentString)
 		return customUserAgentString;
 
-	NSString *version = [SPARKLE_BUNDLE objectForInfoDictionaryKey:@"CFBundleVersion"];
+	NSString *version = [SUBundle() objectForInfoDictionaryKey:@"CFBundleVersion"];
 	NSString *userAgent = [NSString stringWithFormat:@"%@/%@ Sparkle/%@", [host name], [host displayVersion], version ? version : @"?"];
 	NSData *cleanedAgent = [userAgent dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES];
 	return [[NSString alloc] initWithData:cleanedAgent encoding:NSASCIIStringEncoding];
