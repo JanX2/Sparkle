@@ -196,7 +196,7 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 
 - (void)updateDriverDidFinish:(NSNotification *)note
 {
-	if ([note object] == driver && [driver finished])
+	if ([note object] == driver && driver.finished)
 	{
 		 driver = nil;
 		[self scheduleNextUpdateCheck];
@@ -567,7 +567,7 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 
 - (BOOL)updateInProgress
 {
-	return driver && ([driver finished] == NO);
+	return driver && !driver.finished;
 }
 
 - (NSBundle *)hostBundle { return [host bundle]; }

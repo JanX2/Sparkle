@@ -12,14 +12,7 @@
 #import <Cocoa/Cocoa.h>
 #import "SUBasicUpdateDriver.h"
 
-@class SUAutomaticUpdateAlert;
 @interface SUAutomaticUpdateDriver : SUBasicUpdateDriver
-{
-@private
-	BOOL postponingInstallation, showErrors;
-	SUAutomaticUpdateAlert *alert;
-}
-
 @end
 
 #endif

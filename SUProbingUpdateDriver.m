@@ -15,15 +15,17 @@
 
 - (void)didFindValidUpdate
 {
-	if ([[updater delegate] respondsToSelector:@selector(updater:didFindValidUpdate:)])
-		[[updater delegate] updater:updater didFindValidUpdate:updateItem];
+	id <SUUpdaterDelegate> delegate = self.updater.delegate;
+	if ([delegate respondsToSelector:@selector(updater:didFindValidUpdate:)])
+		[delegate updater:self.updater didFindValidUpdate:self.updateItem];
 	[self abortUpdate];
 }
 
 - (void)didNotFindUpdate
 {
-	if ([[updater delegate] respondsToSelector:@selector(updaterDidNotFindUpdate:)])
-		[[updater delegate] updaterDidNotFindUpdate:updater];
+	id <SUUpdaterDelegate> delegate = self.updater.delegate;
+	if ([delegate respondsToSelector:@selector(updaterDidNotFindUpdate:)])
+		[delegate updaterDidNotFindUpdate:self.updater];
 	[self abortUpdate];
 }
 

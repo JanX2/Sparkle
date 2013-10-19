@@ -30,6 +30,18 @@
 #define TRY_TO_APPEND_VERSION_NUMBER				1
 
 // -----------------------------------------------------------------------------
+//	API preprocessor attributes
+// -----------------------------------------------------------------------------
+
+#if defined(__has_feature) && defined(__has_attribute)
+#if __has_attribute(objc_requires_super)
+#define SU_REQUIRES_SUPER __attribute((objc_requires_super))
+#else
+#define SU_REQUIRES_SUPER
+#endif
+#endif
+
+// -----------------------------------------------------------------------------
 //	Notifications:
 // -----------------------------------------------------------------------------
 

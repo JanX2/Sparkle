@@ -12,38 +12,31 @@
 NSString * const SUUpdateDriverFinishedNotification = @"SUUpdateDriverFinished";
 
 @implementation SUUpdateDriver
-- initWithUpdater:(SUUpdater *)anUpdater
+
+- (instancetype)initWithUpdater:(SUUpdater *)anUpdater
 {
-	if ((self = [super init]))
-		updater = anUpdater;
+	self = [super init];
+	if (self) {
+		_updater = anUpdater;
+	}
 	return self;
 }
 
-- (NSString *)description { return [NSString stringWithFormat:@"%@ <%@, %@>", [self class], [host bundlePath], [host installationPath]]; }
-
-- (void)checkForUpdatesAtURL:(NSURL *)URL host:(SUHost *)h
+- (NSString *)description
 {
-	appcastURL = [URL copy];
-	host = h;
+	return [NSString stringWithFormat:@"%@ <%@, %@>", [self class], self.host.bundlePath, self.host.installationPath];
+}
+
+- (void)checkForUpdatesAtURL:(NSURL *)URL host:(SUHost *)host
+{
+	_appcastURL = [URL copy];
+	_host = host;
 }
 
 - (void)abortUpdate
 {
-	[self setValue:[NSNumber numberWithBool:YES] forKey:@"finished"];	
+	_finished = YES;
 	[[NSNotificationCenter defaultCenter] postNotificationName:SUUpdateDriverFinishedNotification object:self];
-}
-
-- (BOOL)finished { return finished; }
-
-
-- (SUHost*)host
-{
-    return host;
-}
-
-- (void)setHost:(SUHost*)newHost
-{
-    host = newHost;
 }
 
 @end

@@ -17,6 +17,8 @@
 
 @implementation SUStatusController
 
+@synthesize statusText = statusText;
+
 - (id)initWithHost:(SUHost *)aHost
 {
 	self = [super initWithHost:aHost windowNibName:@"SUStatus"];

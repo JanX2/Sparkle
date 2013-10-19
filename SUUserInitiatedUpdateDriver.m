@@ -11,30 +11,39 @@
 #import "SUStatusController.h"
 #import "SUHost.h"
 
+@interface SUUserInitiatedUpdateDriver () {
+	BOOL _isCanceled;
+}
+
+@property (nonatomic, strong) SUStatusController *checkingController;
+
+@end
+
 @implementation SUUserInitiatedUpdateDriver
 
 - (void)closeCheckingWindow
 {
-	if (checkingController)
+	if (self.checkingController)
 	{
-		[[checkingController window] close];
-		checkingController = nil;
+		[self.checkingController.window close];
+		self.checkingController = nil;
 	}
 }
 
 - (void)cancelCheckForUpdates:sender
 {
 	[self closeCheckingWindow];
-	isCanceled = YES;
+	_isCanceled = YES;
 }
 
 - (void)checkForUpdatesAtURL:(NSURL *)URL host:(SUHost *)aHost
 {
-	checkingController = [[SUStatusController alloc] initWithHost:aHost];
+	SUStatusController *checkingController = [[SUStatusController alloc] initWithHost:aHost];
 	[[checkingController window] center]; // Force the checking controller to load its window.
 	[checkingController beginActionWithTitle:SULocalizedString(@"Checking for updates...", nil) maxProgressValue:0.0 statusText:nil];
 	[checkingController setButtonTitle:SULocalizedString(@"Cancel", nil) target:self action:@selector(cancelCheckForUpdates:) isDefault:NO];
 	[checkingController showWindow:self];
+	self.checkingController = checkingController;
 	[super checkForUpdatesAtURL:URL host:aHost];
 	
 	// For background applications, obtain focus.
@@ -47,7 +56,7 @@
 
 - (void)appcastDidFinishLoading:(SUAppcast *)ac
 {
-	if (isCanceled)
+	if (_isCanceled)
 	{
 		[self abortUpdate];
 		return;
@@ -70,7 +79,7 @@
 
 - (void)appcast:(SUAppcast *)ac failedToLoadWithError:(NSError *)error
 {
-	if (isCanceled)
+	if (_isCanceled)
 	{
 		[self abortUpdate];
 		return;

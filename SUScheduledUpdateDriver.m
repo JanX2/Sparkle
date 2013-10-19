@@ -13,24 +13,31 @@
 #import "SUAppcastItem.h"
 #import "SUVersionComparisonProtocol.h"
 
+@interface SUScheduledUpdateDriver () {
+	BOOL _showErrors;
+}
+
+@end
+
 @implementation SUScheduledUpdateDriver
 
 - (void)didFindValidUpdate
 {
-	showErrors = YES; // We only start showing errors after we present the UI for the first time.
+	_showErrors = YES; // We only start showing errors after we present the UI for the first time.
 	[super didFindValidUpdate];
 }
 
 - (void)didNotFindUpdate
 {
-	if ([[updater delegate] respondsToSelector:@selector(updaterDidNotFindUpdate:)])
-		[[updater delegate] updaterDidNotFindUpdate:updater];
+	id <SUUpdaterDelegate> delegate = self.updater.delegate;
+	if ([delegate respondsToSelector:@selector(updaterDidNotFindUpdate:)])
+		[delegate updaterDidNotFindUpdate:self.updater];
 	[self abortUpdate]; // Don't tell the user that no update was found; this was a scheduled update.
 }
 
 - (void)abortUpdateWithError:(NSError *)error
 {
-	if (showErrors)
+	if (_showErrors)
 		[super abortUpdateWithError:error];
 	else
 		[self abortUpdate];

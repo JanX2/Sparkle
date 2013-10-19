@@ -11,24 +11,20 @@
 
 #import <Cocoa/Cocoa.h>
 
-extern NSString * const SUUpdateDriverFinishedNotification;
+extern NSString *const SUUpdateDriverFinishedNotification;
 
 @class SUHost, SUUpdater;
-@interface SUUpdateDriver : NSObject
-{
-	SUHost *host;
-	SUUpdater *updater;
-	NSURL *appcastURL;
-	
-	BOOL finished;
-}
 
-- initWithUpdater:(SUUpdater *)updater;
-- (void)checkForUpdatesAtURL:(NSURL *)URL host:(SUHost *)host;
+@interface SUUpdateDriver : NSObject
+
+- (instancetype)initWithUpdater:(SUUpdater *)updater;
+- (void)checkForUpdatesAtURL:(NSURL *)URL host:(SUHost *)host SU_REQUIRES_SUPER;
 - (void)abortUpdate;
-- (BOOL)finished;
-- (SUHost*)host;
-- (void)setHost:(SUHost*)newHost;
+
+@property (nonatomic, strong, readonly) SUUpdater *updater;
+@property (nonatomic, strong, readonly) SUHost *host;
+@property (nonatomic, copy, readonly) NSURL *appcastURL;
+@property (nonatomic, readonly, getter = isFinished) BOOL finished;
 
 @end
 

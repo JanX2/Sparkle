@@ -7,16 +7,21 @@
 //
 
 #import "SUAutomaticUpdateDriver.h"
-
 #import "SUAutomaticUpdateAlert.h"
 #import "SUHost.h"
-#import "SUConstants.h"
+
+@interface SUAutomaticUpdateDriver () {
+	BOOL _postponingInstallation, _showErrors;
+}
+@property (nonatomic, strong) SUAutomaticUpdateAlert *alert;
+
+@end
 
 @implementation SUAutomaticUpdateDriver
 
 - (void)unarchiverDidFinish:(SUUnarchiver *)ua
 {
-	alert = [[SUAutomaticUpdateAlert alloc] initWithAppcastItem:updateItem host:host completion:^(SUAutomaticInstallationChoice choice) {
+	self.alert = [[SUAutomaticUpdateAlert alloc] initWithAppcastItem:self.updateItem host:self.host completion:^(SUAutomaticInstallationChoice choice) {
 		switch (choice)
 		{
 			case SUInstallNowChoice:
@@ -24,12 +29,12 @@
 				break;
 				
 			case SUInstallLaterChoice:
-				postponingInstallation = YES;
+				_postponingInstallation = YES;
 				[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillTerminate:) name:NSApplicationWillTerminateNotification object:nil];
 				break;
 				
 			case SUDoNotInstallChoice:
-				[host setObject:[updateItem versionString] forUserDefaultsKey:SUSkippedVersionKey];
+				[self.host setObject:self.updateItem.versionString forUserDefaultsKey:SUSkippedVersionKey];
 				[self abortUpdate];
 				break;
 		}
@@ -38,29 +43,29 @@
 	// If the app is a menubar app or the like, we need to focus it first and alter the
 	// update prompt to behave like a normal window. Otherwise if the window were hidden
 	// there may be no way for the application to be activated to make it visible again.
-	if ([host isBackgroundApplication])
+	if ([self.host isBackgroundApplication])
 	{
-		[[alert window] setHidesOnDeactivate:NO];
+		[self.alert.window setHidesOnDeactivate:NO];
 		[NSApp activateIgnoringOtherApps:YES];
 	}		
 	
 	if ([NSApp isActive])
-		[[alert window] makeKeyAndOrderFront:self];
+		[self.alert.window makeKeyAndOrderFront:self];
 	else
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidBecomeActive:) name:NSApplicationDidBecomeActiveNotification object:NSApp];	
 }
 
 - (void)applicationDidBecomeActive:(NSNotification *)aNotification
 {
-	[[alert window] makeKeyAndOrderFront:self];
-	[[NSNotificationCenter defaultCenter] removeObserver:self name:@"NSApplicationDidBecomeActiveNotification" object:NSApp];
+	[self.alert.window makeKeyAndOrderFront:self];
+	[[NSNotificationCenter defaultCenter] removeObserver:self name:NSApplicationDidBecomeActiveNotification object:NSApp];
 }
 
-- (BOOL)shouldInstallSynchronously { return postponingInstallation; }
+- (BOOL)shouldInstallSynchronously { return _postponingInstallation; }
 
 - (void)installWithToolAndRelaunch:(BOOL)relaunch
 {
-	showErrors = YES;
+	_showErrors = YES;
 	[super installWithToolAndRelaunch:relaunch];
 }
 
@@ -71,7 +76,7 @@
 
 - (void)abortUpdateWithError:(NSError *)error
 {
-	if (showErrors)
+	if (_showErrors)
 		[super abortUpdateWithError:error];
 	else
 		[self abortUpdate];

@@ -37,7 +37,7 @@
 - (double)maxProgressValue;
 - (void)setMaxProgressValue:(double)value;
 
-- (void)setStatusText:(NSString *)statusText;
+@property (nonatomic, copy) NSString *statusText;
 
 @end
 

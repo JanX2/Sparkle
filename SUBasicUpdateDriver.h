@@ -11,24 +11,12 @@
 
 #import <Cocoa/Cocoa.h>
 #import "SUUpdateDriver.h"
+#import "SUAppcast.h"
 #import "SUUnarchiver.h"
 
 @class SUAppcastItem, SUAppcast, SUUnarchiver, SUHost;
-@interface SUBasicUpdateDriver : SUUpdateDriver <SUUnarchiverDelegate> {
-	SUAppcastItem *updateItem;
-	SUAppcastItem *nonDeltaUpdateItem;
-	
-	NSURLDownload *download;
-	NSString *downloadPath;
-	NSString *tempDir;
-	
-	NSString *relaunchPath;
-}
 
-- (void)checkForUpdatesAtURL:(NSURL *)URL host:(SUHost *)host;
-
-- (void)appcastDidFinishLoading:(SUAppcast *)ac;
-- (void)appcast:(SUAppcast *)ac failedToLoadWithError:(NSError *)error;
+@interface SUBasicUpdateDriver : SUUpdateDriver <SUAppcastDelegate, NSURLDownloadDelegate>
 
 - (BOOL)isItemNewer:(SUAppcastItem *)ui;
 - (BOOL)hostSupportsItem:(SUAppcastItem *)ui;
@@ -38,9 +26,6 @@
 - (void)didNotFindUpdate;
 
 - (void)downloadUpdate;
-- (void)download:(NSURLDownload *)d decideDestinationWithSuggestedFilename:(NSString *)name;
-- (void)downloadDidFinish:(NSURLDownload *)d;
-- (void)download:(NSURLDownload *)download didFailWithError:(NSError *)error;
 
 - (void)extractUpdate;
 - (void)failedToApplyDeltaUpdate;
@@ -51,8 +36,11 @@
 - (void)installWithToolAndRelaunch:(BOOL)relaunch;
 - (void)cleanUpDownload;
 
-- (void)abortUpdate;
 - (void)abortUpdateWithError:(NSError *)error;
+
+@property (nonatomic, strong, readonly) SUAppcastItem *updateItem;
+@property (nonatomic, strong, readonly) NSURLDownload *download;
+@property (nonatomic, strong, readonly) NSString *downloadPath;
 
 @end
 
