@@ -8,7 +8,7 @@
 
 #import "SUUpdater.h"
 
-@interface SUUpdater (Private)
+@interface SUUpdater ()
 
 - (BOOL)mayUpdateAndRestart;
 

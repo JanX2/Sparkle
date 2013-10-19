@@ -6,7 +6,7 @@
 //  Copyright 2006 Andy Matuschak. All rights reserved.
 //
 
-#import "SUUpdater.h"
+#import "SUUpdater_Private.h"
 
 #import "SUHost.h"
 #import "SUUpdatePermissionPrompt.h"
@@ -21,7 +21,9 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 
 
-@interface SUUpdater (Private)
+@interface SUUpdater () {
+	BOOL _hasObserved;
+}
 - (id)initForBundle:(NSBundle *)bundle;
 - (void)startUpdateCycle;
 - (void)checkForUpdatesWithDriver:(SUUpdateDriver *)updateDriver;
@@ -41,7 +43,16 @@
 
 #pragma mark Initialization
 
-static NSMutableDictionary *sharedUpdaters = nil;
++ (NSMapTable *)sharedUpdaters
+{
+	static dispatch_once_t onceToken;
+	static NSMapTable *updatersMap = nil;
+	dispatch_once(&onceToken, ^{
+		updatersMap = [NSMapTable weakToStrongObjectsMapTable];
+	});
+	return updatersMap;
+}
+
 static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservationContext;
 
 + (SUUpdater *)sharedUpdater
@@ -53,55 +64,50 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 + (SUUpdater *)updaterForBundle:(NSBundle *)bundle
 {
     if (bundle == nil) bundle = [NSBundle mainBundle];
-	id updater = [sharedUpdaters objectForKey:[NSValue valueWithNonretainedObject:bundle]];
-	if (updater == nil)
+	
+	id updater = [[self sharedUpdaters] objectForKey:bundle];
+	if (!updater) {
 		updater = [[[self class] alloc] initForBundle:bundle];
+	}
 	return updater;
 }
 
 // This is the designated initializer for SUUpdater, important for subclasses
 - (id)initForBundle:(NSBundle *)bundle
 {
-	self = [super init];
     if (bundle == nil) bundle = [NSBundle mainBundle];
 	
-	// Register as observer straight away to avoid exceptions on -dealloc when -unregisterAsObserver is called:
-	if (self)
-		[self registerAsObserver];
-	
-	id updater = [sharedUpdaters objectForKey:[NSValue valueWithNonretainedObject:bundle]];
-    if (updater)
-	{
+	id updater = [[[self class] sharedUpdaters] objectForKey:bundle];
+	if (updater) {
 		self = updater;
-	}
-	else if (self)
-	{
-		if (sharedUpdaters == nil)
-            sharedUpdaters = [[NSMutableDictionary alloc] init];
-        [sharedUpdaters setObject:self forKey:[NSValue valueWithNonretainedObject:bundle]];
-        host = [[SUHost alloc] initWithBundle:bundle];
-		
+	} else {
+		self = [super init];
+		if (self) {
+			[[[self class] sharedUpdaters] setObject:self forKey:bundle];
+			
+			host = [[SUHost alloc] initWithBundle:bundle];
+			
 #if !ENDANGER_USERS_WITH_INSECURE_UPDATES
-		// Saving-the-developer-from-a-stupid-mistake-check:
-        BOOL hasPublicDSAKey = [host publicDSAKey] != nil;
-        BOOL isMainBundle = [bundle isEqualTo:[NSBundle mainBundle]];
-        BOOL hostIsCodeSigned = [SUCodeSigningVerifier hostApplicationIsCodeSigned];
-        if (!isMainBundle && !hasPublicDSAKey) {
-            [self notifyWillShowModalAlert];
-            NSRunAlertPanel(@"Insecure update error!", @"For security reasons, you need to sign your updates with a DSA key. See Sparkle's documentation for more information.", @"OK", nil, nil);
-            [self notifyDidShowModalAlert];
-        } else if (isMainBundle && !(hasPublicDSAKey || hostIsCodeSigned)) {
-            [self notifyWillShowModalAlert];
-            NSRunAlertPanel(@"Insecure update error!", @"For security reasons, you need to code sign your application or sign your updates with a DSA key. See Sparkle's documentation for more information.", @"OK", nil, nil);
-            [self notifyDidShowModalAlert];
-        }
+			// Saving-the-developer-from-a-stupid-mistake-check:
+			BOOL hasPublicDSAKey = [host publicDSAKey] != nil;
+			BOOL isMainBundle = [bundle isEqualTo:[NSBundle mainBundle]];
+			BOOL hostIsCodeSigned = [SUCodeSigningVerifier hostApplicationIsCodeSigned];
+			if (!isMainBundle && !hasPublicDSAKey) {
+				[self notifyWillShowModalAlert];
+				NSRunAlertPanel(@"Insecure update error!", @"For security reasons, you need to sign your updates with a DSA key. See Sparkle's documentation for more information.", @"OK", nil, nil);
+				[self notifyDidShowModalAlert];
+			} else if (isMainBundle && !(hasPublicDSAKey || hostIsCodeSigned)) {
+				[self notifyWillShowModalAlert];
+				NSRunAlertPanel(@"Insecure update error!", @"For security reasons, you need to code sign your application or sign your updates with a DSA key. See Sparkle's documentation for more information.", @"OK", nil, nil);
+				[self notifyDidShowModalAlert];
+			}
 #endif
-        // This runs the permission prompt if needed, but never before the app has finished launching because the runloop won't run before that
-        [self performSelector:@selector(startUpdateCycle) withObject:nil afterDelay:0];
+			// This runs the permission prompt if needed, but never before the app has finished launching because the runloop won't run before that
+			[self performSelector:@selector(startUpdateCycle) withObject:nil afterDelay:0];
+		}
 	}
 	return self;
 }
-
 
 // This will be used when the updater is instantiated in a nib such as MainMenu
 - (id)init
@@ -110,7 +116,6 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 }
 
 - (NSString *)description { return [NSString stringWithFormat:@"%@ <%@, %@>", [self class], [host bundlePath], [host installationPath]]; }
-
 
 -(void)	notifyWillShowModalAlert
 {
@@ -341,15 +346,18 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateDriverDidFinish:) name:SUUpdateDriverFinishedNotification object:nil];
     [[NSUserDefaultsController sharedUserDefaultsController] addObserver:self forKeyPath:[@"values." stringByAppendingString:SUScheduledCheckIntervalKey] options:0 context:SUUpdaterDefaultsObservationContext];
     [[NSUserDefaultsController sharedUserDefaultsController] addObserver:self forKeyPath:[@"values." stringByAppendingString:SUEnableAutomaticChecksKey] options:0 context:SUUpdaterDefaultsObservationContext];
+	_hasObserved = YES;
 }
 
 - (void)unregisterAsObserver
 {
+	if (!_hasObserved) return;
 	@try
 	{
 		[[NSNotificationCenter defaultCenter] removeObserver:self];
 		[[NSUserDefaultsController sharedUserDefaultsController] removeObserver:self forKeyPath:[@"values." stringByAppendingString:SUScheduledCheckIntervalKey]];
 		[[NSUserDefaultsController sharedUserDefaultsController] removeObserver:self forKeyPath:[@"values." stringByAppendingString:SUEnableAutomaticChecksKey]];
+		_hasObserved = NO;
 	}
 	@catch (NSException *e)
 	{
