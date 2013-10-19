@@ -22,7 +22,7 @@
 #import <dirent.h>
 #import <unistd.h>
 #import <sys/param.h>
-
+#import <ServiceManagement/ServiceManagement.h>
 
 @interface SUPlainInstaller (MMExtendedAttributes)
 // Removes the directory tree rooted at |root| from the file quarantine.
@@ -51,9 +51,12 @@
 static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authorization, const char* executablePath, AuthorizationFlags options, const char* const* arguments)
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
-
+	
 	sig_t oldSigChildHandler = signal(SIGCHLD, SIG_DFL);
 	BOOL returnValue = YES;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 	if (AuthorizationExecuteWithPrivileges(authorization, executablePath, options, (char* const*)arguments, NULL) == errAuthorizationSuccess)
 	{
@@ -64,6 +67,9 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
 	}
 	else
 		returnValue = NO;
+	
+#pragma clang diagnostic pop
+
 		
 	signal(SIGCHLD, oldSigChildHandler);
 	return returnValue;
