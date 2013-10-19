@@ -241,7 +241,10 @@ static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservation
 
 -(void)	putFeedURLIntoDictionary: (NSMutableDictionary*)theDict	// You release this.
 {
-	theDict[@"feedURL"] = self.feedURL;
+	NSURL *URL = self.feedURL;
+	if (URL) {
+		theDict[@"feedURL"] = URL;
+	}
 }
 
 -(void)	checkForUpdatesInBgReachabilityCheckWithDriver: (SUUpdateDriver*)inDriver /* RUNS ON ITS OWN THREAD */
