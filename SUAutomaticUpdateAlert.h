@@ -25,7 +25,7 @@ typedef enum
 	SUHost *host;
 }
 
-- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)hostBundle completion:(void(^)(SUAutomaticInstallationChoice))block;
+- (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)host completion:(void(^)(SUAutomaticInstallationChoice))block;
 - (IBAction)installNow:sender;
 - (IBAction)installLater:sender;
 - (IBAction)doNotInstall:sender;

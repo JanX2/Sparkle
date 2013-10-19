@@ -82,40 +82,21 @@
 @end
 
 @interface SUUpdater : NSObject
-{
-@private
-	NSTimer *checkTimer;
-	SUUpdateDriver *driver;
-
-	NSString *customUserAgentString;
-	SUHost *host;
-}
 
 + (SUUpdater *)sharedUpdater;
 + (SUUpdater *)updaterForBundle:(NSBundle *)bundle;
-- (id)initForBundle:(NSBundle *)bundle;
 
-- (NSBundle *)hostBundle;
+/// Designated initializer. Class methods return cached versions.
+- (id)initForBundle:(NSBundle *)bundle;
 
 @property (nonatomic, weak) IBOutlet id <SUUpdaterDelegate> delegate;
 
-- (void)setAutomaticallyChecksForUpdates:(BOOL)automaticallyChecks;
-- (BOOL)automaticallyChecksForUpdates;
-
-- (void)setUpdateCheckInterval:(NSTimeInterval)interval;
-- (NSTimeInterval)updateCheckInterval;
-
-- (void)setFeedURL:(NSURL *)feedURL;
-- (NSURL *)feedURL;	// *** MUST BE CALLED ON MAIN THREAD ***
-
-- (void)setUserAgentString:(NSString *)userAgent;
-- (NSString *)userAgentString;
-
-- (void)setSendsSystemProfile:(BOOL)sendsSystemProfile;
-- (BOOL)sendsSystemProfile;
-
-- (void)setAutomaticallyDownloadsUpdates:(BOOL)automaticallyDownloadsUpdates;
-- (BOOL)automaticallyDownloadsUpdates;
+@property (nonatomic) BOOL automaticallyChecksForUpdates;
+@property (nonatomic) NSTimeInterval updateCheckInterval;
+@property (nonatomic, strong) NSURL *feedURL; // *** MUST BE CALLED ON MAIN THREAD ***
+@property (nonatomic, copy) NSString *userAgentString;
+@property (nonatomic) BOOL sendsSystemProfile;
+@property (nonatomic) BOOL automaticallyDownloadsUpdates;
 
 // This IBAction is meant for a main menu item. Hook up any menu item to this action,
 // and Sparkle will check for updates and report back its findings verbosely.
@@ -127,7 +108,7 @@
 - (void)checkForUpdatesInBackground;
 
 // Date of last update check. Returns nil if no check has been performed.
-- (NSDate*)lastUpdateCheckDate;
+@property (nonatomic, readonly) NSDate *lastUpdateCheckDate;
 
 // This begins a "probing" check for updates which will not actually offer to update to that version. The delegate methods, though,
 // (up to updater:didFindValidUpdate: and updaterDidNotFindUpdate:), are called, so you can use that information in your UI.
@@ -139,22 +120,5 @@
 - (BOOL)updateInProgress;
 
 @end
-
-// -----------------------------------------------------------------------------
-//	Constants:
-// -----------------------------------------------------------------------------
-
-// Define some minimum intervals to avoid DOS-like checking attacks. These are in seconds.
-#if defined(DEBUG) && DEBUG && 0
-#define SU_MIN_CHECK_INTERVAL 60
-#else
-#define SU_MIN_CHECK_INTERVAL 60*60
-#endif
-
-#if defined(DEBUG) && DEBUG && 0
-#define SU_DEFAULT_CHECK_INTERVAL 60
-#else
-#define SU_DEFAULT_CHECK_INTERVAL 60*60*24
-#endif
 
 #endif

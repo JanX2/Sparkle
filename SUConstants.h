@@ -30,6 +30,23 @@
 #define TRY_TO_APPEND_VERSION_NUMBER				1
 
 // -----------------------------------------------------------------------------
+//	Constants:
+// -----------------------------------------------------------------------------
+
+// Define some minimum intervals to avoid DOS-like checking attacks. These are in seconds.
+#if defined(DEBUG) && DEBUG && 0
+#define SU_MIN_CHECK_INTERVAL 60
+#else
+#define SU_MIN_CHECK_INTERVAL 60*60
+#endif
+
+#if defined(DEBUG) && DEBUG && 0
+#define SU_DEFAULT_CHECK_INTERVAL 60
+#else
+#define SU_DEFAULT_CHECK_INTERVAL 60*60*24
+#endif
+
+// -----------------------------------------------------------------------------
 //	API preprocessor attributes
 // -----------------------------------------------------------------------------
 
