@@ -51,7 +51,7 @@
 
 - (void)start
 {
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [self extractorConformingToTypeOfPath:archivePath]);
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [self extractorConformingToTypeOfPath:self.archivePath]);
 }
 
 + (BOOL)canUnarchivePath:(NSString *)path
@@ -89,10 +89,10 @@
 			cleanup();
 		};
 		
-		SULog(@"Extracting %@ using '%@'",archivePath,command);
+		SULog(@"Extracting %@ using '%@'", self.archivePath, command);
     
 		// Get the file size.
-		NSNumber *fs = [[[NSFileManager defaultManager] attributesOfItemAtPath:archivePath error:NULL] objectForKey:NSFileSize];
+		NSNumber *fs = [[[NSFileManager defaultManager] attributesOfItemAtPath:self.archivePath error:NULL] objectForKey:NSFileSize];
 		if (fs == nil) {
 			reportError();
 			return;
@@ -100,13 +100,13 @@
 		
 		// Thank you, Allan Odgaard!
 		// (who wrote the following extraction alg.)
-		fp = fopen([archivePath fileSystemRepresentation], "r");
+		fp = fopen([self.archivePath fileSystemRepresentation], "r");
 		if (!fp) {
 			
 		}
 		
 		oldDestinationString = getenv("DESTINATION");
-		setenv("DESTINATION", [[archivePath stringByDeletingLastPathComponent] fileSystemRepresentation], 1);
+		setenv("DESTINATION", [[self.archivePath stringByDeletingLastPathComponent] fileSystemRepresentation], 1);
 		cmdFP = popen([command fileSystemRepresentation], "w");
 		size_t written;
 		if (!cmdFP) {

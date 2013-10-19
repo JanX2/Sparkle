@@ -7,13 +7,23 @@
 //
 
 #import "SUUpdater.h"
-
+#import "SUConstants.h"
 #import "SUAppcast.h"
 #import "SUAppcastItem.h"
 #import "SUVersionComparisonProtocol.h"
 #import "SUStatusController.h"
 #import "SUHost.h"
 
+@interface SUStatusController ()
+{
+	double progressValue, maxProgressValue;
+	NSString *title, *statusText, *buttonTitle;
+	IBOutlet NSButton *actionButton;
+	IBOutlet NSProgressIndicator* progressBar;
+	SUHost *host;
+}
+
+@end
 
 @implementation SUStatusController
 

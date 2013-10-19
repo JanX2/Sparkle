@@ -7,10 +7,12 @@
 //
 
 #import "SUAutomaticUpdateAlert.h"
-
 #import "SUHost.h"
 
-@interface SUAutomaticUpdateAlert ()
+@interface SUAutomaticUpdateAlert () {
+	SUAppcastItem *updateItem;
+	SUHost *host;
+}
 
 @property (nonatomic, copy) void(^completionBlock)(SUAutomaticInstallationChoice);
 

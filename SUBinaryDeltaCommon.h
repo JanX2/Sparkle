@@ -9,10 +9,8 @@
 #ifndef SUBINARYDELTACOMMON_H
 #define SUBINARYDELTACOMMON_H
 
-#include <fts.h>
-
-@class NSString;
-@class NSData;
+#import <Foundation/Foundation.h>
+#import <fts.h>
 
 extern int compareFiles(const FTSENT **a, const FTSENT **b);
 extern NSData *hashOfFile(FTSENT *ent);

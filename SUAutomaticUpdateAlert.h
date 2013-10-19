@@ -11,8 +11,7 @@
 
 #import "SUWindowController.h"
 
-typedef enum
-{
+typedef enum {
 	SUInstallNowChoice,
 	SUInstallLaterChoice,
 	SUDoNotInstallChoice
@@ -20,10 +19,7 @@ typedef enum
 
 @class SUAppcastItem, SUHost;
 
-@interface SUAutomaticUpdateAlert : SUWindowController {
-	SUAppcastItem *updateItem;
-	SUHost *host;
-}
+@interface SUAutomaticUpdateAlert : SUWindowController
 
 - (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)host completion:(void(^)(SUAutomaticInstallationChoice))block;
 - (IBAction)installNow:sender;

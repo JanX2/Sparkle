@@ -23,14 +23,13 @@
 
 @end
 
-@interface SUUnarchiver : NSObject {
-	NSString *archivePath;
-	SUHost *updateHost;
-}
+@interface SUUnarchiver : NSObject
 
 + (SUUnarchiver *)unarchiverForPath:(NSString *)path updatingHost:(SUHost *)host;
 
 @property (nonatomic, weak) id <SUUnarchiverDelegate> delegate;
+@property (nonatomic, copy, readonly) NSString *archivePath;
+@property (nonatomic, strong, readonly) SUHost *updateHost;
 
 - (void)start;
 

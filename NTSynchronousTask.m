@@ -14,6 +14,16 @@
 #import "NTSynchronousTask.h"
 
 @interface NTSynchronousTask ()
+{
+@private
+    NSTask *mv_task;
+    NSPipe *mv_outputPipe;
+    NSPipe *mv_inputPipe;
+	
+	NSData* mv_output;
+	BOOL mv_done;
+	int mv_result;
+}
 
 @property (nonatomic, strong) NSTask *task;
 @property (nonatomic, strong) NSPipe *outputPipe;

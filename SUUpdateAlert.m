@@ -17,7 +17,19 @@
 
 #import "SUConstants.h"
 
-@interface SUUpdateAlert ()
+@interface SUUpdateAlert () {
+	SUAppcastItem *updateItem;
+	SUHost *host;
+	id<SUVersionDisplay>	versionDisplayer;
+	
+	IBOutlet WebView *releaseNotesView;
+	IBOutlet NSTextField *description;
+	IBOutlet NSButton *installButton;	// UK 2007-08-31.
+	IBOutlet NSButton *skipButton;
+	IBOutlet NSButton *laterButton;
+	NSProgressIndicator *releaseNotesSpinner;
+	BOOL webViewFinishedLoading;
+}
 
 @property (nonatomic, copy) void(^completionBlock)(SUUpdateAlertChoice);
 

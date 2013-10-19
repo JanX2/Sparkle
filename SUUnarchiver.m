@@ -14,6 +14,14 @@
 #import "SUAppcastItem.h"
 #import "SUVersionComparisonProtocol.h"
 
+@interface SUUnarchiver ()
+
+
+@property (nonatomic, copy, readwrite) NSString *archivePath;
+@property (nonatomic, strong, readwrite) SUHost *updateHost;
+
+@end
+
 @implementation SUUnarchiver
 
 + (SUUnarchiver *)unarchiverForPath:(NSString *)path updatingHost:(SUHost *)host
@@ -28,7 +36,9 @@
 	return nil;
 }
 
-- (NSString *)description { return [NSString stringWithFormat:@"%@ <%@>", [self class], archivePath]; }
+- (NSString *)description {
+	return [NSString stringWithFormat:@"%@ <%@>", [self class], self.archivePath];
+}
 
 - (void)start
 {
@@ -41,8 +51,8 @@
 {
 	if ((self = [super init]))
 	{
-		archivePath = [path copy];
-		updateHost = host;
+		self.archivePath = path;
+		self.updateHost = host;
 	}
 	return self;
 }

@@ -9,7 +9,8 @@
 #ifndef SUBINARYDELTAAPPLY_H
 #define SUBINARYDELTAAPPLY_H
 
-@class NSString;
+#import <Foundation/Foundation.h>
+
 int applyBinaryDelta(NSString *source, NSString *destination, NSString *patchFile);
 
 #endif

@@ -24,7 +24,7 @@
 {
 	@autoreleasepool {
     
-        NSData *result = [NTSynchronousTask task:@"/usr/bin/hdiutil" directory:@"/" withArgs:[NSArray arrayWithObjects: @"isencrypted", archivePath, nil] input:NULL];
+        NSData *result = [NTSynchronousTask task:@"/usr/bin/hdiutil" directory:@"/" withArgs:[NSArray arrayWithObjects: @"isencrypted", self.archivePath, nil] input:NULL];
 		
 		id <SUUnarchiverDelegate> delegate = self.delegate;
 		if ([[self class] isEncrypted:result] && [delegate respondsToSelector:@selector(unarchiver:requiresPasswordWithCompletion:)]) {
@@ -53,7 +53,7 @@
 			if (mountedSuccessfully)
 				[NSTask launchedTaskWithLaunchPath:@"/usr/bin/hdiutil" arguments:[NSArray arrayWithObjects:@"detach", mountPoint, @"-force", nil]];
 			else
-				SULog(@"Can't mount DMG %@", archivePath);
+				SULog(@"Can't mount DMG %@", self.archivePath);
 		};
 		
 		void (^reportError)(void) = ^{
@@ -66,7 +66,7 @@
 		};
 		
 
-        SULog(@"Extracting %@ as a DMG", archivePath);
+        SULog(@"Extracting %@ as a DMG", self.archivePath);
 
         // get a unique mount point path
         FSRef tmpRef;
@@ -93,7 +93,7 @@
         else
             promptData = [NSData dataWithBytes:"yes\n" length:4];
 
-        NSArray *arguments = [NSArray arrayWithObjects:@"attach", archivePath, @"-mountpoint", mountPoint, /*@"-noverify",*/ @"-nobrowse", @"-noautoopen", nil];
+        NSArray *arguments = [NSArray arrayWithObjects:@"attach", self.archivePath, @"-mountpoint", mountPoint, /*@"-noverify",*/ @"-nobrowse", @"-noautoopen", nil];
 
         NSData *output = nil;
         NSInteger taskResult = -1;
@@ -144,7 +144,7 @@
 		NSString *item;
 		while ((item = [contentsEnumerator nextObject])) {
 			NSString *fromPath = [mountPoint stringByAppendingPathComponent:item];
-			NSString *toPath = [[archivePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:item];
+			NSString *toPath = [[self.archivePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:item];
 			
 			// We skip any files in the DMG which are not readable.
 			if (![manager isReadableFileAtPath:fromPath])

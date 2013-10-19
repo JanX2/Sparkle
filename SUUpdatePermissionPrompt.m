@@ -11,7 +11,15 @@
 #import "SUHost.h"
 #import "SUConstants.h"
 
-@interface SUUpdatePermissionPrompt ()
+@interface SUUpdatePermissionPrompt () {
+	SUHost *host;
+	NSArray *systemProfileInformationArray;
+	IBOutlet NSTextField *descriptionTextField;
+	IBOutlet NSView *moreInfoView;
+	IBOutlet NSButton *moreInfoButton;
+    IBOutlet NSTableView *profileTableView;
+	BOOL isShowingMoreInfo, shouldSendProfile;
+}
 
 @property (nonatomic, copy) void(^completionBlock)(SUPermissionPromptResult);
 

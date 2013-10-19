@@ -12,9 +12,7 @@
 #import "SUWindowController.h"
 #import "SUVersionDisplayProtocol.h"
 
-
-typedef enum
-{
+typedef enum {
 	SUInstallUpdateChoice,
 	SURemindMeLaterChoice,
 	SUSkipThisVersionChoice,
@@ -23,19 +21,7 @@ typedef enum
 
 @class WebView, SUAppcastItem, SUHost;
 
-@interface SUUpdateAlert : SUWindowController {
-	SUAppcastItem *updateItem;
-	SUHost *host;
-	id<SUVersionDisplay>	versionDisplayer;
-	
-	IBOutlet WebView *releaseNotesView;
-	IBOutlet NSTextField *description;
-	IBOutlet NSButton *installButton;	// UK 2007-08-31.
-	IBOutlet NSButton *skipButton;
-	IBOutlet NSButton *laterButton;
-	NSProgressIndicator *releaseNotesSpinner;
-	BOOL webViewFinishedLoading;
-}
+@interface SUUpdateAlert : SUWindowController
 
 - (id)initWithAppcastItem:(SUAppcastItem *)item host:(SUHost *)host completion:(void(^)(SUUpdateAlertChoice))block;
 
