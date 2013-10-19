@@ -36,8 +36,6 @@
 	}	
 	
 	SUAppcast *appcast = [[SUAppcast alloc] init];
-	CFBridgingRetain(appcast); // We'll manage the appcast's memory ourselves so we don't have to make it an IV to support GC.
-	
 	[appcast setDelegate:self];
 	[appcast setUserAgentString:[updater userAgentString]];
 	[appcast fetchAppcastFromURL:URL];
@@ -122,7 +120,6 @@
 	}
     
     updateItem = item;
-	if (ac) { CFBridgingRelease((__bridge CFTypeRef)ac); } // Remember that we're explicitly managing the memory of the appcast.
 	if (updateItem == nil) { [self didNotFindUpdate]; return; }
 	
 	if ([self itemContainsValidUpdate:updateItem])
@@ -133,7 +130,6 @@
 
 - (void)appcast:(SUAppcast *)ac failedToLoadWithError:(NSError *)error
 {
-	if (ac) { CFBridgingRelease((__bridge CFTypeRef)ac); } // Remember that we're explicitly managing the memory of the appcast.
 	[self abortUpdateWithError:error];
 }
 
@@ -229,7 +225,6 @@
 		[self unarchiverDidFail:nil];
 		return;
 	}
-	CFBridgingRetain(unarchiver); // Manage this memory manually so we don't have to make it an IV.
 	[unarchiver setDelegate:self];
 	[unarchiver start];
 }
@@ -245,14 +240,11 @@
 
 - (void)unarchiverDidFinish:(SUUnarchiver *)ua
 {
-	if (ua) { CFBridgingRelease((__bridge CFTypeRef)ua); }
 	[self installWithToolAndRelaunch:YES];
 }
 
 - (void)unarchiverDidFail:(SUUnarchiver *)ua
 {
-	if (ua) { CFBridgingRelease((__bridge CFTypeRef)ua); }
-
 	if ([updateItem isDeltaUpdate]) {
 		[self failedToApplyDeltaUpdate];
 		return;
