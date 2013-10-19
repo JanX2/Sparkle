@@ -85,8 +85,7 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
 	if ((version = [[NSBundle bundleWithPath:path] objectForInfoDictionaryKey:@"CFBundleVersion"]) && ![version isEqualToString:@""])
 	{
 		// We'll clean it up a little for safety.
-		// The cast is necessary because of a bug in the headers in pre-10.5 SDKs
-		NSMutableCharacterSet *validCharacters = (id)[NSMutableCharacterSet alphanumericCharacterSet];
+		NSMutableCharacterSet *validCharacters = [NSMutableCharacterSet alphanumericCharacterSet];
 		[validCharacters formUnionWithCharacterSet:[NSCharacterSet characterSetWithCharactersInString:@".-()"]];
 		postFix = [version stringByTrimmingCharactersInSet:[validCharacters invertedSet]];
 	}
@@ -139,8 +138,7 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
 	if ((version = [[NSBundle bundleWithPath: path] objectForInfoDictionaryKey:@"CFBundleVersion"]) && ![version isEqualToString:@""])
 	{
 		// We'll clean it up a little for safety.
-		// The cast is necessary because of a bug in the headers in pre-10.5 SDKs
-		NSMutableCharacterSet *validCharacters = (id)[NSMutableCharacterSet alphanumericCharacterSet];
+		NSMutableCharacterSet *validCharacters = [NSMutableCharacterSet alphanumericCharacterSet];
 		[validCharacters formUnionWithCharacterSet:[NSCharacterSet characterSetWithCharactersInString:@".-()"]];
 		postFix = [version stringByTrimmingCharactersInSet:[validCharacters invertedSet]];
 	}
@@ -530,19 +528,6 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
            options:(int)options
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
-
-	typedef int (*removexattr_type)(const char*, const char*, int);
-	// Reference removexattr directly, it's in the SDK.
-	static removexattr_type removexattr_func = removexattr;
-	
-	// Make sure that the symbol is present.  This checks the deployment
-	// target instead of the SDK so that it's able to catch dlsym failures
-	// as well as the null symbol that would result from building with the
-	// 10.4 SDK and a lower deployment target, and running on 10.3.
-	if (!removexattr_func) {
-		errno = ENOSYS;
-		return -1;
-	}
 	
 	const char* path = NULL;
 	@try {
@@ -557,7 +542,7 @@ static BOOL AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef authoriza
 		return -1;
 	}
 	
-	return removexattr_func(path, name, options);
+	return removexattr(path, name, options);
 }
 
 + (void)releaseFromQuarantine:(NSString*)root

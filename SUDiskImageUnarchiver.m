@@ -114,7 +114,6 @@
 		
         mountedSuccessfully = YES;
 
-        // On 10.7 and later we don't want to use the File Manager API and instead want to use NSFileManager (fixes #827357).
 		NSFileManager *manager = [[NSFileManager alloc] init];
 		NSError *error = nil;
 		NSArray *contents = [manager contentsOfDirectoryAtPath:mountPoint error:&error];

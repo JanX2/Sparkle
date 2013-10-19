@@ -47,7 +47,7 @@
 		5D06E9050FD68D7D005AE3F6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0867D69BFE84028FC02AAC07 /* Foundation.framework */; };
 		5D06E9390FD69271005AE3F6 /* SUBinaryDeltaUnarchiver.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D06E9370FD69271005AE3F6 /* SUBinaryDeltaUnarchiver.h */; };
 		5D06E93A0FD69271005AE3F6 /* SUBinaryDeltaUnarchiver.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D06E9380FD69271005AE3F6 /* SUBinaryDeltaUnarchiver.m */; };
-		5D1AF58A0FD7678C0065DB48 /* libxar.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D1AF5890FD7678C0065DB48 /* libxar.1.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
+		5D1AF58A0FD7678C0065DB48 /* libxar.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D1AF5890FD7678C0065DB48 /* libxar.1.dylib */; settings = {ATTRIBUTES = (Required, ); }; };
 		5D1AF58B0FD7678C0065DB48 /* libxar.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D1AF5890FD7678C0065DB48 /* libxar.1.dylib */; };
 		5D1AF5900FD767AD0065DB48 /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D1AF58F0FD767AD0065DB48 /* libxml2.dylib */; };
 		5D1AF59A0FD767E50065DB48 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D1AF5990FD767E50065DB48 /* libz.dylib */; };

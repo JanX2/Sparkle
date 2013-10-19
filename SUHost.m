@@ -122,7 +122,6 @@
 	if (!icon) {
 		BOOL isMainBundle = (bundle == [NSBundle mainBundle]);
 		
-		// Starting with 10.6, iconForFileType: accepts a UTI.
 		NSString *fileType = isMainBundle ? (NSString*)kUTTypeApplication : (NSString*)kUTTypeBundle;
 		icon = [[NSWorkspace sharedWorkspace] iconForFileType:fileType];
 	}

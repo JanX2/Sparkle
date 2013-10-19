@@ -114,12 +114,10 @@
 			item = [updateEnumerator nextObject];
 		} while (item && ![self hostSupportsItem:item]);
 
-		if (binaryDeltaSupported()) {        
-			SUAppcastItem *deltaUpdateItem = [[item deltaUpdates] objectForKey:[host version]];
-			if (deltaUpdateItem && [self hostSupportsItem:deltaUpdateItem]) {
-				nonDeltaUpdateItem = item;
-				item = deltaUpdateItem;
-			}
+		SUAppcastItem *deltaUpdateItem = [[item deltaUpdates] objectForKey:[host version]];
+		if (deltaUpdateItem && [self hostSupportsItem:deltaUpdateItem]) {
+			nonDeltaUpdateItem = item;
+			item = deltaUpdateItem;
 		}
 	}
     
