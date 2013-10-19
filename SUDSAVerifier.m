@@ -89,31 +89,36 @@
 		return NO;
 	}
     
-    SecGroupTransformRef group = SecTransformCreateGroupTransform();
-    SecTransformRef dataReadTransform = NULL;
-    SecTransformRef dataDigestTransform = NULL;
-    SecTransformRef dataVerifyTransform = NULL;
-	CFErrorRef error = NULL;
+    __block SecGroupTransformRef group = SecTransformCreateGroupTransform();
+    __block SecTransformRef dataReadTransform = NULL;
+    __block SecTransformRef dataDigestTransform = NULL;
+    __block SecTransformRef dataVerifyTransform = NULL;
+	__block CFErrorRef error = NULL;
     
     BOOL(^cleanupBlock) () = ^{
         if (group) {
             CFRelease(group);
+			group = NULL;
         }
         
         if (dataReadTransform) {
             CFRelease(dataReadTransform);
+			dataReadTransform = NULL;
         }
 		
 		if (dataDigestTransform) {
 			CFRelease(dataDigestTransform);
+			dataDigestTransform = NULL;
 		}
 		
         if (dataVerifyTransform) {
             CFRelease(dataVerifyTransform);
+			dataVerifyTransform = NULL;
         }
 		
 		if (error) {
 			CFRelease(error);
+			error = NULL;
 		}
 		
 		return NO;

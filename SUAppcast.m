@@ -191,7 +191,7 @@
 					}
 					[dict setObject:deltas forKey:@"deltas"];
 				}
-				else if (name != nil)
+				else if (node != nil && name != nil)
 				{
 					// add all other values as strings
 					[dict setObject:[[node stringValue] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] forKey:name];
