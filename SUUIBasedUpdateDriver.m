@@ -64,7 +64,7 @@
 
 - (void)updateAlert:(SUUpdateAlert *)alert finishedWithChoice:(SUUpdateAlertChoice)choice
 {
-	[updateAlert release]; updateAlert = nil;
+	updateAlert = nil;
 	[host setObject:nil forUserDefaultsKey:SUSkippedVersionKey];
 	switch (choice)
 	{
@@ -169,8 +169,8 @@
     {
         password = [prompt password];
     }
-    [prompt release];
     [invocation setArgument:&password atIndex:2];
+	[invocation retainArguments];
     [invocation invoke];
 }
 
@@ -194,7 +194,6 @@
 	if (statusController)
 	{
 		[statusController close];
-		[statusController autorelease];
 		statusController = nil;
 	}
 }
@@ -211,7 +210,6 @@
 	if (statusController)
 	{
 		[statusController close];
-		[statusController autorelease];
 		statusController = nil;
 	}
 	[super abortUpdate];

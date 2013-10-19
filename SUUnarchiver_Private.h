@@ -12,7 +12,8 @@
 #import <Cocoa/Cocoa.h>
 #import "SUUnarchiver.h"
 
-@interface SUUnarchiver (Private)
+@interface SUUnarchiver ()
+
 + (void)registerImplementation:(Class)implementation;
 + (NSArray *)unarchiverImplementations;
 + (BOOL)canUnarchivePath:(NSString *)path;
@@ -21,6 +22,7 @@
 - (void)notifyDelegateOfExtractedLength:(NSNumber *)length;
 - (void)notifyDelegateOfSuccess;
 - (void)notifyDelegateOfFailure;
+
 @end
 
 #endif

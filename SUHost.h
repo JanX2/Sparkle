@@ -11,12 +11,6 @@
 #import "SUVersionComparisonProtocol.h"
 
 @interface SUHost : NSObject
-{
-@private
-	NSBundle *bundle;
-	NSString *defaultsDomain;
-	BOOL usesStandardUserDefaults;
-}
 
 + (NSString *)systemVersionString;
 

@@ -39,20 +39,6 @@
 
 @implementation SUAppcast
 
-- (void)dealloc
-{
-	[items release];
-	items = nil;
-	[userAgentString release];
-	userAgentString = nil;
-	[downloadFilename release];
-	downloadFilename = nil;
-	[download release];
-	download = nil;
-	
-	[super dealloc];
-}
-
 - (NSArray *)items
 {
 	return items;
@@ -79,7 +65,6 @@
 
 - (void)download:(NSURLDownload *)aDownload didCreateDestination:(NSString *)path
 {
-    [downloadFilename release];
     downloadFilename = [path copy];
 }
 
@@ -94,16 +79,16 @@
 	
 	if (downloadFilename)
 	{
-        NSUInteger options = 0;
-        if (NSAppKitVersionNumber < NSAppKitVersionNumber10_7) {
-            // In order to avoid including external entities when parsing the appcast (a potential security vulnerability; see https://github.com/andymatuschak/Sparkle/issues/169), we ask NSXMLDocument to "tidy" the XML first. This happens to remove these external entities; it wouldn't be a future-proof approach, but it worked in these historical versions of OS X, and we have a more rigorous approach for 10.7+.
-            options = NSXMLDocumentTidyXML;
-        } else {
-            // In 10.7 and later, there's a real option for the behavior we desire.
-            options = NSXMLNodeLoadExternalEntitiesSameOriginOnly;
-        }
+		NSUInteger options = 0;
+		if (NSAppKitVersionNumber < NSAppKitVersionNumber10_7) {
+			// In order to avoid including external entities when parsing the appcast (a potential security vulnerability; see https://github.com/andymatuschak/Sparkle/issues/169), we ask NSXMLDocument to "tidy" the XML first. This happens to remove these external entities; it wouldn't be a future-proof approach, but it worked in these historical versions of OS X, and we have a more rigorous approach for 10.7+.
+			options = NSXMLDocumentTidyXML;
+		} else {
+			// In 10.7 and later, there's a real option for the behavior we desire.
+			options = NSXMLNodeLoadExternalEntitiesSameOriginOnly;
+		}
 		document = [[[NSXMLDocument alloc] initWithContentsOfURL:[NSURL fileURLWithPath:downloadFilename] options:options error:&error] autorelease];
-	
+
 #if MAC_OS_X_VERSION_MIN_REQUIRED <= MAC_OS_X_VERSION_10_4
 		[[NSFileManager defaultManager] removeFileAtPath:downloadFilename handler:nil];
 #else
@@ -199,7 +184,7 @@
             }
             
 			NSString *errString;
-			SUAppcastItem *anItem = [[[SUAppcastItem alloc] initWithDictionary:dict failureReason:&errString] autorelease];
+			SUAppcastItem *anItem = [[SUAppcastItem alloc] initWithDictionary:dict failureReason:&errString];
             if (anItem)
             {
                 [appcastItems addObject:anItem];
@@ -215,7 +200,7 @@
 	
 	if ([appcastItems count])
     {
-		NSSortDescriptor *sort = [[[NSSortDescriptor alloc] initWithKey:@"date" ascending:NO] autorelease];
+		NSSortDescriptor *sort = [[NSSortDescriptor alloc] initWithKey:@"date" ascending:NO];
 		[appcastItems sortUsingDescriptors:[NSArray arrayWithObject:sort]];
 		items = [appcastItems copy];
 	}
@@ -240,7 +225,6 @@
 		[[NSFileManager defaultManager] removeItemAtPath:downloadFilename error:nil];
 #endif
 	}
-    [downloadFilename release];
     downloadFilename = nil;
     
 	[self reportError:error];
@@ -288,7 +272,6 @@
 {
 	if (uas != userAgentString)
 	{
-		[userAgentString release];
 		userAgentString = [uas copy];
 	}
 }

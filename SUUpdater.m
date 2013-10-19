@@ -42,7 +42,7 @@
 #pragma mark Initialization
 
 static NSMutableDictionary *sharedUpdaters = nil;
-static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefaultsObservationContext";
+static void *SUUpdaterDefaultsObservationContext = &SUUpdaterDefaultsObservationContext;
 
 + (SUUpdater *)sharedUpdater
 {
@@ -55,7 +55,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
     if (bundle == nil) bundle = [NSBundle mainBundle];
 	id updater = [sharedUpdaters objectForKey:[NSValue valueWithNonretainedObject:bundle]];
 	if (updater == nil)
-		updater = [[[[self class] alloc] initForBundle:bundle] autorelease];
+		updater = [[[self class] alloc] initForBundle:bundle];
 	return updater;
 }
 
@@ -72,8 +72,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 	id updater = [sharedUpdaters objectForKey:[NSValue valueWithNonretainedObject:bundle]];
     if (updater)
 	{
-		[self release];
-		self = [updater retain];
+		self = updater;
 	}
 	else if (self)
 	{
@@ -186,7 +185,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 {
 	if ([note object] == driver && [driver finished])
 	{
-		[driver release]; driver = nil;
+		 driver = nil;
 		[self scheduleNextUpdateCheck];
     }
 }
@@ -201,7 +200,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 	if (checkTimer)
 	{
 		[checkTimer invalidate];
-		[checkTimer release];		// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
+				// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
 		checkTimer = nil;
 	}
 	if (![self automaticallyChecksForUpdates]) return;
@@ -219,7 +218,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 		delayUntilCheck = (updateCheckInterval - intervalSinceCheck); // It hasn't been long enough.
 	else
 		delayUntilCheck = 0; // We're overdue! Run one now.
-	checkTimer = [[NSTimer scheduledTimerWithTimeInterval:delayUntilCheck target:self selector:@selector(checkForUpdatesInBackground) userInfo:nil repeats:NO] retain];		// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
+	checkTimer = [NSTimer scheduledTimerWithTimeInterval:delayUntilCheck target:self selector:@selector(checkForUpdatesInBackground) userInfo:nil repeats:NO];		// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
 }
 
 
@@ -237,39 +236,39 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 		// We could use asynchronous reachability callbacks, but those aren't
 		//	reliable enough and can 'get lost' sometimes, which we don't want.
 		
-		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-		SCNetworkConnectionFlags flags = 0;
-		BOOL isNetworkReachable = YES;
-		
-		// Don't perform automatic checks on unconnected laptops or dial-up connections that aren't online:
-		NSMutableDictionary*		theDict = [NSMutableDictionary dictionary];
-		[self performSelectorOnMainThread: @selector(putFeedURLIntoDictionary:) withObject: theDict waitUntilDone: YES];	// Get feed URL on main thread, it's not safe to call elsewhere.
-		
-		const char *hostname = [[[theDict objectForKey: @"feedURL"] host] cStringUsingEncoding: NSUTF8StringEncoding];
-		SCNetworkReachabilityRef reachability = SCNetworkReachabilityCreateWithName(NULL, hostname);
+		@autoreleasepool {
+			SCNetworkConnectionFlags flags = 0;
+			BOOL isNetworkReachable = YES;
+			
+			// Don't perform automatic checks on unconnected laptops or dial-up connections that aren't online:
+			NSMutableDictionary*		theDict = [NSMutableDictionary dictionary];
+			[self performSelectorOnMainThread: @selector(putFeedURLIntoDictionary:) withObject: theDict waitUntilDone: YES];	// Get feed URL on main thread, it's not safe to call elsewhere.
+			
+			const char *hostname = [[[theDict objectForKey: @"feedURL"] host] cStringUsingEncoding: NSUTF8StringEncoding];
+			SCNetworkReachabilityRef reachability = SCNetworkReachabilityCreateWithName(NULL, hostname);
         Boolean reachabilityResult = NO;
         // If the feed's using a file:// URL, we won't be able to use reachability.
         if (reachability != NULL) {
             SCNetworkReachabilityGetFlags(reachability, &flags);
             CFRelease(reachability);
         }
-		
-		if( reachabilityResult )
-		{
-			BOOL reachable =	(flags & kSCNetworkFlagsReachable)				== kSCNetworkFlagsReachable;
-			BOOL automatic =	(flags & kSCNetworkFlagsConnectionAutomatic)	== kSCNetworkFlagsConnectionAutomatic;
-			BOOL local =		(flags & kSCNetworkFlagsIsLocalAddress)			== kSCNetworkFlagsIsLocalAddress;
 			
-			//NSLog(@"reachable = %s, automatic = %s, local = %s", (reachable?"YES":"NO"), (automatic?"YES":"NO"), (local?"YES":"NO"));
+			if( reachabilityResult )
+			{
+				BOOL reachable =	(flags & kSCNetworkFlagsReachable)				== kSCNetworkFlagsReachable;
+				BOOL automatic =	(flags & kSCNetworkFlagsConnectionAutomatic)	== kSCNetworkFlagsConnectionAutomatic;
+				BOOL local =		(flags & kSCNetworkFlagsIsLocalAddress)			== kSCNetworkFlagsIsLocalAddress;
+				
+				//NSLog(@"reachable = %s, automatic = %s, local = %s", (reachable?"YES":"NO"), (automatic?"YES":"NO"), (local?"YES":"NO"));
+				
+				if( !(reachable || automatic || local) )
+					isNetworkReachable = NO;
+			}
 			
-			if( !(reachable || automatic || local) )
-				isNetworkReachable = NO;
-		}
-		
         // If the network's not reachable, we pass a nil driver into checkForUpdatesWithDriver, which will then reschedule the next update so we try again later.    
         [self performSelectorOnMainThread: @selector(checkForUpdatesWithDriver:) withObject: isNetworkReachable ? inDriver : nil waitUntilDone: NO];
 		
-		[pool release];
+		}
 	NS_HANDLER
 		SULog(@"UNCAUGHT EXCEPTION IN UPDATE CHECK TIMER: %@",[localException reason]);
 		// Don't propagate the exception beyond here. In Carbon apps that would trash the stack.
@@ -282,7 +281,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 	// Background update checks should only happen if we have a network connection.
 	//	Wouldn't want to annoy users on dial-up by establishing a connection every
 	//	hour or so:
-	SUUpdateDriver *	theUpdateDriver = [[[([self automaticallyDownloadsUpdates] ? [SUAutomaticUpdateDriver class] : [SUScheduledUpdateDriver class]) alloc] initWithUpdater:self] autorelease];
+	SUUpdateDriver *	theUpdateDriver = [[([self automaticallyDownloadsUpdates] ? [SUAutomaticUpdateDriver class] : [SUScheduledUpdateDriver class]) alloc] initWithUpdater:self];
 	
 	[NSThread detachNewThreadSelector: @selector(checkForUpdatesInBgReachabilityCheckWithDriver:) toTarget: self withObject: theUpdateDriver];
 }
@@ -295,18 +294,18 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 
 - (IBAction)checkForUpdates: (id)sender
 {
-	[self checkForUpdatesWithDriver:[[[SUUserInitiatedUpdateDriver alloc] initWithUpdater:self] autorelease]];
+	[self checkForUpdatesWithDriver:[[SUUserInitiatedUpdateDriver alloc] initWithUpdater:self]];
 }
 
 - (void)checkForUpdateInformation
 {
-	[self checkForUpdatesWithDriver:[[[SUProbingUpdateDriver alloc] initWithUpdater:self] autorelease]];
+	[self checkForUpdatesWithDriver:[[SUProbingUpdateDriver alloc] initWithUpdater:self]];
 }
 
 - (void)checkForUpdatesWithDriver:(SUUpdateDriver *)d
 {
 	if ([self updateInProgress]) { return; }
-	if (checkTimer) { [checkTimer invalidate]; [checkTimer release]; checkTimer = nil; }		// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
+	if (checkTimer) { [checkTimer invalidate];  checkTimer = nil; }		// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
 	
 	SUClearLog();
 	SULog( @"===== %@ =====", [[NSFileManager defaultManager] displayNameAtPath: [[NSBundle mainBundle] bundlePath]] );
@@ -321,7 +320,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 		return;
 	}
     	
-    driver = [d retain];
+    driver = d;
     
     // If we're not given a driver at all, just schedule the next update check and bail.
     if (!driver)
@@ -440,7 +439,6 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 	if (customUserAgentString == userAgent)
 		return;
 
-	[customUserAgentString release];
 	customUserAgentString = [userAgent copy];
 }
 
@@ -452,7 +450,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 	NSString *version = [SPARKLE_BUNDLE objectForInfoDictionaryKey:@"CFBundleVersion"];
 	NSString *userAgent = [NSString stringWithFormat:@"%@/%@ Sparkle/%@", [host name], [host displayVersion], version ? version : @"?"];
 	NSData *cleanedAgent = [userAgent dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES];
-	return [[[NSString alloc] initWithData:cleanedAgent encoding:NSASCIIStringEncoding] autorelease];
+	return [[NSString alloc] initWithData:cleanedAgent encoding:NSASCIIStringEncoding];
 }
 
 - (void)setSendsSystemProfile:(BOOL)sendsSystemProfile
@@ -529,9 +527,7 @@ static NSString * const SUUpdaterDefaultsObservationContext = @"SUUpdaterDefault
 - (void)dealloc
 {
 	[self unregisterAsObserver];
-	[host release];
-	if (checkTimer) { [checkTimer invalidate]; [checkTimer release]; checkTimer = nil; }		// UK 2009-03-16 Timer is non-repeating, may have invalidated itself, so we had to retain it.
-	[super dealloc];
+	[checkTimer invalidate];
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem *)item
