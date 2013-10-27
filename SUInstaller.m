@@ -23,90 +23,81 @@ static NSString*	sUpdateFolder = nil;
 	return sUpdateFolder;
 }
 
-+ (BOOL)isAliasFolderAtPath:(NSString *)path
+static NSURL *sUpdateURL = nil;
+
++ (NSURL*)updateURL
 {
-	FSRef fileRef;
-	OSStatus err = noErr;
-	Boolean aliasFileFlag, folderFlag;
-	NSURL *fileURL = [NSURL fileURLWithPath:path];
-	
-	if (FALSE == CFURLGetFSRef((CFURLRef)fileURL, &fileRef))
-		err = coreFoundationUnknownErr;
-	
-	if (noErr == err)
-		err = FSIsAliasFile(&fileRef, &aliasFileFlag, &folderFlag);
-	
-	if (noErr == err)
-		return (BOOL)(aliasFileFlag && folderFlag);
-	else
-		return NO;	
+	return sUpdateURL;
 }
 
 + (NSString *)installSourcePathInUpdateFolder:(NSString *)inUpdateFolder forHost:(SUHost *)host isPackage:(BOOL *)isPackagePtr
 {
     // Search subdirectories for the application
-	NSString	*currentFile,
-    *newAppDownloadPath = nil,
-    *bundleFileName = [[host bundlePath] lastPathComponent],
-    *alternateBundleFileName = [[host name] stringByAppendingPathExtension:[[host bundlePath] pathExtension]];
+	NSString	*bundleFileName = host.bundleURL.lastPathComponent,
+				*alternateBundleFileName = [host.name stringByAppendingPathExtension:host.bundleURL.pathExtension];
 	BOOL isPackage = NO;
-	NSString *fallbackPackagePath = nil;
-	NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath: inUpdateFolder];
+	NSURL *inUpdateFolderURL = [NSURL fileURLWithPath:inUpdateFolder isDirectory:YES],
+		  *newAppDownloadURL = nil, *fallbackPackageURL = nil;
+		
+	NSDirectoryEnumerator *dirEnum = [[NSFileManager new] enumeratorAtURL:inUpdateFolderURL includingPropertiesForKeys:@[NSURLIsAliasFileKey] options:0 errorHandler:NULL];
 	
 	sUpdateFolder = inUpdateFolder;
+	sUpdateURL = inUpdateFolderURL;
 	
-	while ((currentFile = [dirEnum nextObject]))
-	{
-		NSString *currentPath = [inUpdateFolder stringByAppendingPathComponent:currentFile];		
-		if ([[currentFile lastPathComponent] isEqualToString:bundleFileName] ||
-			[[currentFile lastPathComponent] isEqualToString:alternateBundleFileName]) // We found one!
+	for (NSURL *currentURL in dirEnum) {
+		if ([currentURL.lastPathComponent isEqualToString:bundleFileName] ||
+			[currentURL.lastPathComponent isEqualToString:alternateBundleFileName])  // We found one!
 		{
 			isPackage = NO;
-			newAppDownloadPath = currentPath;
+			newAppDownloadURL = currentURL;
 			break;
 		}
-		else if ([[currentFile pathExtension] isEqualToString:@"pkg"] ||
-				 [[currentFile pathExtension] isEqualToString:@"mpkg"])
+		else if ([currentURL.pathExtension isEqualToString:@"pkg"] ||
+				 [currentURL.pathExtension isEqualToString:@"mpkg"])
 		{
-			if ([[[currentFile lastPathComponent] stringByDeletingPathExtension] isEqualToString:[bundleFileName stringByDeletingPathExtension]])
+			if ([[currentURL.lastPathComponent stringByDeletingPathExtension] isEqualToString:[bundleFileName stringByDeletingPathExtension]])
 			{
 				isPackage = YES;
-				newAppDownloadPath = currentPath;
+				newAppDownloadURL = currentURL;
 				break;
 			}
 			else
 			{
 				// Remember any other non-matching packages we have seen should we need to use one of them as a fallback.
-				fallbackPackagePath = currentPath;
+				fallbackPackageURL = currentURL;
 			}
+			
 		}
 		else
 		{
 			// Try matching on bundle identifiers in case the user has changed the name of the host app
-			NSBundle *incomingBundle = [NSBundle bundleWithPath:currentPath];
-			if(incomingBundle && [[incomingBundle bundleIdentifier] isEqualToString:[[host bundle] bundleIdentifier]])
+			NSBundle *incomingBundle = [NSBundle bundleWithURL:currentURL];
+			if(incomingBundle && [incomingBundle.bundleIdentifier isEqualToString:host.bundle.bundleIdentifier])
 			{
 				isPackage = NO;
-				newAppDownloadPath = currentPath;
+				newAppDownloadURL = currentURL;
 				break;
 			}
 		}
 		
 		// Some DMGs have symlinks into /Applications! That's no good!
-		if ([self isAliasFolderAtPath:currentPath])
-			[dirEnum skipDescendents];
+		NSNumber *isAlias = nil;
+		if ([currentURL getResourceValue:&isAlias forKey:NSURLIsAliasFileKey error:NULL]) {
+			if ([isAlias boolValue]) {
+				[dirEnum skipDescendents];
+			}
+		}
 	}
 	
 	// We don't have a valid path. Try to use the fallback package.
-    
-	if (newAppDownloadPath == nil && fallbackPackagePath != nil)
+	if (newAppDownloadURL == nil && fallbackPackageURL != nil)
 	{
 		isPackage = YES;
-		newAppDownloadPath = fallbackPackagePath;
+		newAppDownloadURL = fallbackPackageURL;
 	}
-
+	
     if (isPackagePtr) *isPackagePtr = isPackage;
-    return newAppDownloadPath;
+    return [newAppDownloadURL path];
 }
 
 + (NSString *)appPathInUpdateFolder:(NSString *)updateFolder forHost:(SUHost *)host

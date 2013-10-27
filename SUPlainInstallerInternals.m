@@ -25,7 +25,7 @@
 #import <ServiceManagement/ServiceManagement.h>
 
 @interface SUPlainInstaller (MMExtendedAttributes)
-+ (void)releaseFromQuarantine:(NSString*)root;
++ (void)releaseURLFromQuarantine:(NSURL*)URL;
 @end
 
 static OSStatus su_AuthorizationExecuteWithPrivileges(AuthorizationRef authorization, const char *pathToTool, AuthorizationFlags flags, char *const *arguments)
@@ -177,103 +177,68 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 
 @implementation SUPlainInstaller (Internals)
 
-+ (NSString *)temporaryNameForPath:(NSString *)path
-{
-	// Let's try to read the version number so the filename will be more meaningful.
-	NSString *postFix;
-	NSString *version;
-	if ((version = [[NSBundle bundleWithPath:path] objectForInfoDictionaryKey:@"CFBundleVersion"]) && ![version isEqualToString:@""])
-	{
-		// We'll clean it up a little for safety.
-		NSMutableCharacterSet *validCharacters = [NSMutableCharacterSet alphanumericCharacterSet];
-		[validCharacters formUnionWithCharacterSet:[NSCharacterSet characterSetWithCharactersInString:@".-()"]];
-		postFix = [version stringByTrimmingCharactersInSet:[validCharacters invertedSet]];
-	}
-	else
-		postFix = @"old";
-	NSString *prefix = [[path stringByDeletingPathExtension] stringByAppendingFormat:@" (%@)", postFix];
-	NSString *tempDir = [prefix stringByAppendingPathExtension:[path pathExtension]];
-	// Now let's make sure we get a unique path.
-	unsigned int cnt=2;
-	while ([[NSFileManager defaultManager] fileExistsAtPath:tempDir] && cnt <= 999)
-		tempDir = [NSString stringWithFormat:@"%@ %u.%@", prefix, cnt++, [path pathExtension]];
-	return [tempDir lastPathComponent];
-}
-
-+ (NSString *)_temporaryCopyNameForPath:(NSString *)path didFindTrash: (BOOL*)outDidFindTrash
++ (NSURL *)_temporaryCopyURL:(NSURL *)URL didFindTrash: (BOOL*)outDidFindTrash
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
-	NSString *tempDir = nil;
 	
-	UInt8			trashPath[MAXPATHLEN +1] = { 0 };
-	FSRef			trashRef, pathRef;
-	FSVolumeRefNum	vSrcRefNum = kFSInvalidVolumeRefNum;
-	FSCatalogInfo	catInfo;
-	memset( &catInfo, 0, sizeof(catInfo) );
-	OSStatus err = FSPathMakeRef( (UInt8*) [path fileSystemRepresentation], &pathRef, NULL );
-	if( err == noErr )
-	{
-		err = FSGetCatalogInfo( &pathRef, kFSCatInfoVolume, &catInfo, NULL, NULL, NULL );
-		vSrcRefNum = catInfo.volume;
+	NSFileManager *fileManager = [[NSFileManager alloc] init];
+	NSURL *tempURL = nil;
+	
+	NSError *error = nil;
+	if ([URL checkResourceIsReachableAndReturnError:&error]) {
+		tempURL = [fileManager URLForDirectory:NSTrashDirectory inDomain:NSUserDomainMask appropriateForURL:URL create:YES error:&error];
 	}
-	if( err == noErr )
-		err = FSFindFolder( vSrcRefNum, kTrashFolderType, kCreateFolder, &trashRef );
-	if( err == noErr )
-		err = FSGetCatalogInfo( &trashRef, kFSCatInfoVolume, &catInfo, NULL, NULL, NULL );
-	if( err == noErr && vSrcRefNum != catInfo.volume )
-		err = nsvErr;	// Couldn't find a trash folder on same volume as given path. Docs say this may happen in the future.
-	if( err == noErr )
-		err = FSRefMakePath( &trashRef, trashPath, MAXPATHLEN );
-	if( err == noErr )
-		tempDir = [[NSFileManager defaultManager] stringWithFileSystemRepresentation: (char*) trashPath length: strlen((char*) trashPath)];
-	if( outDidFindTrash )
-		*outDidFindTrash = (tempDir != nil);
-	if( !tempDir )
-		tempDir = [path stringByDeletingLastPathComponent];
 	
-	// Let's try to read the version number so the filename will be more meaningful.
-	#if TRY_TO_APPEND_VERSION_NUMBER
+	if (outDidFindTrash) {
+		*outDidFindTrash = (tempURL != nil);
+	}
+	
+	if (!tempURL) {
+		tempURL = [URL URLByDeletingLastPathComponent];
+	}
+	
+#if TRY_TO_APPEND_VERSION_NUMBER
 	NSString *postFix = nil;
 	NSString *version = nil;
-	if ((version = [[NSBundle bundleWithPath: path] objectForInfoDictionaryKey:@"CFBundleVersion"]) && ![version isEqualToString:@""])
-	{
+	if ((version = [[NSBundle bundleWithURL:URL] objectForInfoDictionaryKey:@"CFBundleVersion"]) && ![version isEqualToString:@""]) {
 		// We'll clean it up a little for safety.
 		NSMutableCharacterSet *validCharacters = [NSMutableCharacterSet alphanumericCharacterSet];
 		[validCharacters formUnionWithCharacterSet:[NSCharacterSet characterSetWithCharactersInString:@".-()"]];
 		postFix = [version stringByTrimmingCharactersInSet:[validCharacters invertedSet]];
 	}
-	else
+	else {
 		postFix = @"old";
-	NSString *prefix = [NSString stringWithFormat: @"%@ (%@)", [[path lastPathComponent] stringByDeletingPathExtension], postFix];
-	#else
+	}
+	NSString *prefix = [NSString stringWithFormat: @"%@ (%@)", [[URL lastPathComponent] stringByDeletingPathExtension], postFix];
+#else
 	NSString *prefix = [[path lastPathComponent] stringByDeletingPathExtension];
-	#endif
-	NSString *tempName = [prefix stringByAppendingPathExtension: [path pathExtension]];
-	tempDir = [tempDir stringByAppendingPathComponent: tempName];
+#endif
+	NSString *tempName = [prefix stringByAppendingPathExtension: [URL pathExtension]];
+	tempURL = [tempURL URLByAppendingPathComponent:tempName];
 	
-	// Now let's make sure we get a unique path.
+	
 	int cnt=2;
-	while ([[NSFileManager defaultManager] fileExistsAtPath:tempDir] && cnt <= 9999)
-		tempDir = [[tempDir stringByDeletingLastPathComponent] stringByAppendingPathComponent: [NSString stringWithFormat:@"%@ %d.%@", prefix, cnt++, [path pathExtension]]];
-	
-	return tempDir;
+	while ([tempURL checkResourceIsReachableAndReturnError:NULL] && cnt <= 9999) {
+		tempURL = [[tempURL URLByDeletingLastPathComponent] URLByAppendingPathComponent: [NSString stringWithFormat:@"%@ %d.%@", prefix, cnt++, [URL pathExtension]]];
+	}
+	return tempURL;
 }
 
-+ (BOOL)_copyPathWithForcedAuthentication:(NSString *)src toPath:(NSString *)dst temporaryPath:(NSString *)tmp error:(NSError **)error
++ (BOOL)_copyURLWithForcedAuthentication:(NSURL *)srcURL toURL:(NSURL *)dstURL temporaryURL:(NSURL *)tmpURL error:(NSError **)error
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
 	
-	const char* srcPath = [src fileSystemRepresentation];
-	const char* tmpPath = [tmp fileSystemRepresentation];
-	const char* dstPath = [dst fileSystemRepresentation];
+	const char* srcPath = [srcURL fileSystemRepresentation];
+	const char* tmpPath = [tmpURL fileSystemRepresentation];
+	const char* dstPath = [dstURL fileSystemRepresentation];
 	
 	struct stat dstSB;
 	if( stat(dstPath, &dstSB) != 0 )	// Doesn't exist yet, try containing folder.
 	{
-		const char*	dstDirPath = [[dst stringByDeletingLastPathComponent] fileSystemRepresentation];
+		const char *dstDirPath = [[dstURL URLByDeletingLastPathComponent] fileSystemRepresentation];
 		if( stat(dstDirPath, &dstSB) != 0 )
 		{
-			NSString *errorMessage = [NSString stringWithFormat:@"Stat on %@ during authenticated file copy failed.", dst];
+			NSString *errorMessage = [NSString stringWithFormat:@"Stat on %@ during authenticated file copy failed.", dstURL];
 			if (error != NULL)
 				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUFileCopyFailure userInfo:[NSDictionary dictionaryWithObject:errorMessage forKey:NSLocalizedDescriptionKey]];
 			return NO;
@@ -306,9 +271,9 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 		// because the ownership change will fail if the file is quarantined.
 		if (res)
 		{
-			SULog(@"releaseFromQuarantine");
+			SULog(@"releaseURLFromQuarantine");
 			dispatch_sync(dispatch_get_main_queue(), ^{
-				[self releaseFromQuarantine:src];
+				[self releaseURLFromQuarantine:srcURL];
 			});
 		}
 		
@@ -320,7 +285,7 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 				SULog( @"chown -R %s %s failed.", uidgid, srcPath );
 		}
 		
-		BOOL	haveDst = [[NSFileManager defaultManager] fileExistsAtPath: dst];
+		BOOL	haveDst = [dstURL checkResourceIsReachableAndReturnError:error];
 		if( res && haveDst )	// If there's something at our tmp path (previous failed update or whatever) delete that first.
 		{
 			const char*	rmParams[] = { "-rf", tmpPath, NULL };
@@ -336,7 +301,7 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 			if( !res )
 				SULog( @"mv 1 failed" );
 		}
-				
+		
 		if( res )	// Move new exe to old exe's path.
 		{
 			const char* mvParams2[] = { "-f", srcPath, dstPath, NULL };
@@ -345,11 +310,11 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 				SULog( @"mv 2 failed" );
 		}
 		
-//		if( res && haveDst /*&& !foundTrash*/ )	// If we managed to put the old exe in the trash, leave it there for the user to delete or recover.
-//		{									// ...  Otherwise we better delete it, wouldn't want dozens of old versions lying around next to the new one.
-//			const char* rmParams2[] = { "-rf", tmpPath, NULL };
-//			res = su_AuthorizationExecuteWithPrivilegesAndWait( auth, "/bin/rm", kAuthorizationFlagDefaults, rmParams2 );
-//		}
+		//		if( res && haveDst /*&& !foundTrash*/ )	// If we managed to put the old exe in the trash, leave it there for the user to delete or recover.
+		//		{									// ...  Otherwise we better delete it, wouldn't want dozens of old versions lying around next to the new one.
+		//			const char* rmParams2[] = { "-rf", tmpPath, NULL };
+		//			res = su_AuthorizationExecuteWithPrivilegesAndWait( auth, "/bin/rm", kAuthorizationFlagDefaults, rmParams2 );
+		//		}
 		
 		AuthorizationFree(auth, 0);
 		
@@ -364,16 +329,16 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 		// in the application being quarantined.
         if (res)
 		{
-			SULog(@"releaseFromQuarantine after installing");
+			SULog(@"releaseURLFromQuarantine after installing");
 			dispatch_sync(dispatch_get_main_queue(), ^{
-				[self releaseFromQuarantine:dst];
+				[self releaseURLFromQuarantine:dstURL];
 			});
 		}
-
+		
 		if (!res)
 		{
 			// Something went wrong somewhere along the way, but we're not sure exactly where.
-			NSString *errorMessage = [NSString stringWithFormat:@"Authenticated file copy from %@ to %@ failed.", src, dst];
+			NSString *errorMessage = [NSString stringWithFormat:@"Authenticated file copy from %@ to %@ failed.", srcURL, dstURL];
 			if (error != nil)
 				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUAuthenticationFailure userInfo:[NSDictionary dictionaryWithObject:errorMessage forKey:NSLocalizedDescriptionKey]];
 		}
@@ -386,13 +351,13 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 	return res;
 }
 
-+ (BOOL)_movePathWithForcedAuthentication:(NSString *)src toPath:(NSString *)dst error:(NSError **)error
++ (BOOL)_moveURLWithForcedAuthentication:(NSURL *)srcURL toURL:(NSURL *)dstURL error:(NSError **)error
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
 	
-	const char* srcPath = [src fileSystemRepresentation];
-	const char* dstPath = [dst fileSystemRepresentation];
-	const char* dstContainerPath = [[dst stringByDeletingLastPathComponent] fileSystemRepresentation];
+	const char* srcPath = [srcURL fileSystemRepresentation];
+	const char* dstPath = [dstURL fileSystemRepresentation];
+	const char* dstContainerPath = [[dstURL URLByDeletingLastPathComponent] fileSystemRepresentation];
 	
 	struct stat dstSB;
 	stat(dstContainerPath, &dstSB);
@@ -424,7 +389,7 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 				SULog(@"Can't set permissions");
 		}
 		
-		BOOL	haveDst = [[NSFileManager defaultManager] fileExistsAtPath: dst];
+		BOOL	haveDst = [dstURL checkResourceIsReachableAndReturnError:error];
 		if( res && haveDst )	// If there's something at our tmp path (previous failed update or whatever) delete that first.
 		{
 			const char*	rmParams[] = { "-rf", dstPath, NULL };
@@ -446,7 +411,7 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 		if (!res)
 		{
 			// Something went wrong somewhere along the way, but we're not sure exactly where.
-			NSString *errorMessage = [NSString stringWithFormat:@"Authenticated file move from %@ to %@ failed.", src, dst];
+			NSString *errorMessage = [NSString stringWithFormat:@"Authenticated file move from %@ to %@ failed.", srcURL, dstURL];
 			if (error != NULL)
 				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUAuthenticationFailure userInfo:[NSDictionary dictionaryWithObject:errorMessage forKey:NSLocalizedDescriptionKey]];
 		}
@@ -459,12 +424,10 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 	return res;
 }
 
-
-+ (BOOL)_removeFileAtPathWithForcedAuthentication:(NSString *)src error:(NSError **)error
++ (BOOL)_removeItemAtURLWithForcedAuthentication:(NSURL *)srcURL error:(NSError **)error
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
-	
-	const char* srcPath = [src fileSystemRepresentation];
+	const char *srcPath = [srcURL fileSystemRepresentation];
 	
 	AuthorizationRef auth = NULL;
 	OSStatus authStat = errAuthorizationDenied;
@@ -494,7 +457,7 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 		if (!res)
 		{
 			// Something went wrong somewhere along the way, but we're not sure exactly where.
-			NSString *errorMessage = [NSString stringWithFormat:@"Authenticated file remove from %@ failed.", src];
+			NSString *errorMessage = [NSString stringWithFormat:@"Authenticated file remove from %s failed.", srcPath];
 			if (error != NULL)
 				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUAuthenticationFailure userInfo:[NSDictionary dictionaryWithObject:errorMessage forKey:NSLocalizedDescriptionKey]];
 		}
@@ -507,104 +470,92 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 	return res;
 }
 
-+ (BOOL)_removeFileAtPath:(NSString *)path error: (NSError**)error
++ (BOOL)_removeItemAtURL:(NSURL *)URL error:(NSError *__autoreleasing *)error
 {
 	BOOL	success = YES;
-	if( ![[NSFileManager defaultManager] removeItemAtPath: path error: NULL] )
+	if (![[NSFileManager defaultManager] removeItemAtURL: URL error: NULL] )
 	{
-		success = [self _removeFileAtPathWithForcedAuthentication: path error: error];
+		success = [self _removeItemAtURLWithForcedAuthentication: URL error: error];
 	}
-	
 	return success;
 }
 
-+ (void)_movePathToTrash:(NSString *)path
++ (void)_moveItemAtURLToTrash:(NSURL *)URL
 {
-	//SULog(@"Moving %@ to the trash.", path);
-	NSInteger tag = 0;
-	if (![[NSWorkspace sharedWorkspace] performFileOperation:NSWorkspaceRecycleOperation source:[path stringByDeletingLastPathComponent] destination:@"" files:[NSArray arrayWithObject:[path lastPathComponent]] tag:&tag])
-	{
-		BOOL		didFindTrash = NO;
-		NSString*	trashPath = [self _temporaryCopyNameForPath: path didFindTrash: &didFindTrash];
-		if( didFindTrash )
-		{
-			NSError		*err = nil;
-			if( ![self _movePathWithForcedAuthentication: path toPath: trashPath error: &err] )
-				SULog(@"Sparkle error: couldn't move %@ to the trash (%@). %@", path, trashPath, err);
+	[[NSWorkspace sharedWorkspace] recycleURLs:@[URL] completionHandler:^(NSDictionary *newURLs, NSError *error) {
+		if (error) {
+			BOOL		didFindTrash = NO;
+			NSURL *trashURL = [self _temporaryCopyURL:URL didFindTrash:&didFindTrash];
+			if (didFindTrash) {
+				NSError		*err = nil;
+				if( ![self _moveURLWithForcedAuthentication: URL toURL: trashURL error: &err] )
+					SULog(@"Sparkle error: couldn't move %@ to the trash (%@). %@", URL, trashURL, err);
+			} else {
+				SULog(@"Sparkle error: couldn't move %@ to the trash. This is often a sign of a permissions error.", URL);
+			}
 		}
-		else
-			SULog(@"Sparkle error: couldn't move %@ to the trash. This is often a sign of a permissions error.", path);
-	}
-	else
-		;//SULog(@"Moved %@ to the trash.", path);
+	}];
 }
 
-+ (BOOL)copyPathWithAuthentication:(NSString *)src overPath:(NSString *)dst temporaryName:(NSString *)tmp error:(NSError **)error
++ (BOOL)copyURLWithAuthentication:(NSURL *)srcURL overURL:(NSURL *)dstURL error:(NSError **)error
 {
-	FSRef		srcRef, dstRef, dstDirRef, tmpDirRef;
-	OSStatus	err;
 	BOOL		hadFileAtDest = NO, didFindTrash = NO;
-	NSString	*tmpPath = [self _temporaryCopyNameForPath: dst didFindTrash: &didFindTrash];
+	NSFileManager *fileManager = [[NSFileManager alloc] init];
+	NSURL	*tmpURL = [self _temporaryCopyURL: dstURL didFindTrash: &didFindTrash];
 	
-	// Make FSRef for destination:
-	err = FSPathMakeRefWithOptions((UInt8 *)[dst fileSystemRepresentation], kFSPathMakeRefDoNotFollowLeafSymlink, &dstRef, NULL);
-	hadFileAtDest = (err == noErr);	// There is a file at the destination, move it aside. If we normalized the name, we might not get here, so don't error.
-	if( hadFileAtDest )
+	// Make ref for destination:
+	hadFileAtDest = (srcURL.fileReferenceURL != nil);	// There is a file at the destination, move it aside. If we normalized the name, we might not get here, so don't error.
+	if ( hadFileAtDest )
 	{
-		if (0 != access([dst fileSystemRepresentation], W_OK) || 0 != access([[dst stringByDeletingLastPathComponent] fileSystemRepresentation], W_OK))
+		if (0 != access([dstURL fileSystemRepresentation], W_OK) || 0 != access([[dstURL URLByDeletingLastPathComponent] fileSystemRepresentation], W_OK))
 		{
-			return [self _copyPathWithForcedAuthentication:src toPath:dst temporaryPath:tmpPath error:error];
+			return [self _copyURLWithForcedAuthentication:srcURL toURL:dstURL temporaryURL:tmpURL error:error];
 		}
 	}
 	else
 	{
-		if (0 != access([[dst stringByDeletingLastPathComponent] fileSystemRepresentation], W_OK)
-			|| 0 != access([[[dst stringByDeletingLastPathComponent] stringByDeletingLastPathComponent] fileSystemRepresentation], W_OK))
+		if (0 != access([[dstURL URLByDeletingLastPathComponent] fileSystemRepresentation], W_OK)
+			|| 0 != access([[[dstURL URLByDeletingLastPathComponent] URLByDeletingLastPathComponent] fileSystemRepresentation], W_OK))
 		{
-			return [self _copyPathWithForcedAuthentication:src toPath:dst temporaryPath:tmpPath error:error];
+			return [self _copyURLWithForcedAuthentication:srcURL toURL:dstURL temporaryURL:tmpURL error:error];
 		}
 	}
 	
-	if( hadFileAtDest )
+	if (hadFileAtDest)
 	{
-		err = FSPathMakeRef((UInt8 *)[[tmpPath stringByDeletingLastPathComponent] fileSystemRepresentation], &tmpDirRef, NULL);
-		if (err != noErr)
-			FSPathMakeRef((UInt8 *)[[dst stringByDeletingLastPathComponent] fileSystemRepresentation], &tmpDirRef, NULL);
+		if (![[tmpURL URLByDeletingLastPathComponent] checkResourceIsReachableAndReturnError:error]) {
+			tmpURL = [dstURL URLByDeletingLastPathComponent];
+		}
 	}
 	
-	err = FSPathMakeRef((UInt8 *)[[dst stringByDeletingLastPathComponent] fileSystemRepresentation], &dstDirRef, NULL);
-	
-	if (err == noErr && hadFileAtDest)
-	{ 
-		NSFileManager *manager = [[NSFileManager alloc] init];
-		BOOL success = [manager moveItemAtPath:dst toPath:tmpPath error:error];
+	if ([[dstURL URLByDeletingLastPathComponent] checkResourceIsReachableAndReturnError:error] && hadFileAtDest)
+	{
+		BOOL success = [fileManager moveItemAtURL:dstURL toURL:tmpURL error:error];
 		if (!success && hadFileAtDest)
 		{
 			if (error != NULL)
-				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUFileCopyFailure userInfo:[NSDictionary dictionaryWithObject:[NSString stringWithFormat:@"Couldn't move %@ to %@.", dst, tmpPath] forKey:NSLocalizedDescriptionKey]];
+				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUFileCopyFailure userInfo:[NSDictionary dictionaryWithObject:[NSString stringWithFormat:@"Couldn't move %@ to %@.", dstURL, tmpURL] forKey:NSLocalizedDescriptionKey]];
 			return NO;
 		}
+		
 	}
 	
-	err = FSPathMakeRef((UInt8 *)[src fileSystemRepresentation], &srcRef, NULL);
-	if (err == noErr)
-	{
-		NSFileManager *manager = [[NSFileManager alloc] init];
-		BOOL success = [manager copyItemAtPath:src toPath:dst error:error];
+	if ([srcURL checkResourceIsReachableAndReturnError:error]) {
+		BOOL success = [fileManager copyItemAtURL:srcURL toURL:dstURL error:error];
 		if (!success)
 		{
 			// We better move the old version back to its old location
 			if( hadFileAtDest )
-				[manager moveItemAtPath:tmpPath toPath:dst error:error];
+				[fileManager moveItemAtURL:tmpURL toURL:dstURL error:error];
 			
 			if (error != NULL)
-				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUFileCopyFailure userInfo:[NSDictionary dictionaryWithObject:[NSString stringWithFormat:@"Couldn't move %@ to %@.", dst, tmpPath] forKey:NSLocalizedDescriptionKey]];
+				*error = [NSError errorWithDomain:SUSparkleErrorDomain code:SUFileCopyFailure userInfo:[NSDictionary dictionaryWithObject:[NSString stringWithFormat:@"Couldn't move %@ to %@.", dstURL, tmpURL] forKey:NSLocalizedDescriptionKey]];
 			
 			return NO;
 			
 		}
 	}
-		
+	
 	// If the currently-running application is trusted, the new
 	// version should be trusted as well.  Remove it from the
 	// quarantine to avoid a delay at launch, and to avoid
@@ -615,7 +566,7 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 	// happens, the move is actually a copy, and it may result
 	// in the application being quarantined.
 	dispatch_sync(dispatch_get_main_queue(), ^{
-		[self releaseFromQuarantine:dst];
+		[self releaseURLFromQuarantine:dstURL];
 	});
 	
 	return YES;
@@ -630,7 +581,7 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
 @implementation SUPlainInstaller (MMExtendedAttributes)
 
 + (int)removeXAttr:(const char*)name
-          fromFile:(NSString*)file
+          fromURL:(NSURL *)file
            options:(int)options
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
@@ -669,31 +620,29 @@ static BOOL su_AuthorizationExecuteWithPrivilegesAndWait(AuthorizationRef author
  "com.apple.quarantine", on affected files.  Removing this attribute is
  sufficient to remove files from the quarantine.
  */
-+ (void)releaseFromQuarantine:(NSString*)root
+
++ (void)releaseURLFromQuarantine:(NSURL*)URL
 {
 	// *** MUST BE SAFE TO CALL ON NON-MAIN THREAD!
-
+	
 	const char* quarantineAttribute = "com.apple.quarantine";
 	const int removeXAttrOptions = XATTR_NOFOLLOW;
 	
 	[self removeXAttr:quarantineAttribute
-			 fromFile:root
+			  fromURL:URL
 			  options:removeXAttrOptions];
 	
 	// Only recurse if it's actually a directory.  Don't recurse into a
 	// root-level symbolic link.
-	NSDictionary* rootAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:root error:NULL];
-	NSString* rootType = [rootAttributes objectForKey:NSFileType];
-	
-	if (rootType == NSFileTypeDirectory) {
-		// The NSDirectoryEnumerator will avoid recursing into any contained
-		// symbolic links, so no further type checks are needed.
-		NSDirectoryEnumerator* directoryEnumerator = [[NSFileManager defaultManager] enumeratorAtPath:root];
-		NSString* file = nil;
-		while ((file = [directoryEnumerator nextObject])) {
-			[self removeXAttr:quarantineAttribute
-					 fromFile:[root stringByAppendingPathComponent:file]
-					  options:removeXAttrOptions];
+	NSNumber *isDirectory = nil;
+	if ([URL getResourceValue:&isDirectory forKey:NSURLIsDirectoryKey error:NULL]) {
+		if ([isDirectory boolValue]) {
+			// The NSDirectoryEnumerator will avoid recursing into any contained
+			// symbolic links, so no further type checks are needed.
+			NSDirectoryEnumerator *directoryEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:URL includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:0 errorHandler:NULL];
+			for (NSURL *subURL in directoryEnumerator) {
+				[self removeXAttr:quarantineAttribute fromURL:subURL options:removeXAttrOptions];
+			}
 		}
 	}
 }

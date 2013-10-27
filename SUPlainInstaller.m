@@ -13,7 +13,6 @@
 
 static NSString * const SUInstallerPathKey = @"SUInstallerPath";
 static NSString * const SUInstallerTargetPathKey = @"SUInstallerTargetPath";
-static NSString * const SUInstallerTempNameKey = @"SUInstallerTempName";
 static NSString * const SUInstallerHostKey = @"SUInstallerHost";
 static NSString * const SUInstallerDelegateKey = @"SUInstallerDelegate";
 static NSString * const SUInstallerResultKey = @"SUInstallerResult";
@@ -37,17 +36,20 @@ static NSString * const SUInstallerInstallationPathKey = @"SUInstallerInstallati
 	
 		NSError *error = nil;
 		
-		NSString	*	oldPath = [[info objectForKey:SUInstallerHostKey] bundlePath];
-		NSString	*	installationPath = [info objectForKey:SUInstallerInstallationPathKey];
-		BOOL result = [self copyPathWithAuthentication:[info objectForKey:SUInstallerPathKey] overPath: installationPath temporaryName:[info objectForKey:SUInstallerTempNameKey] error:&error];
+		NSURL	*oldURL = [[info objectForKey:SUInstallerHostKey] bundleURL];
+		NSString *installationPath = [info objectForKey:SUInstallerInstallationPathKey];
+		NSURL	*installationURL = [NSURL fileURLWithPath:installationPath];
+		NSURL	*installerURL = [NSURL fileURLWithPath:[info objectForKey:SUInstallerPathKey]];
+		BOOL result = [self copyURLWithAuthentication:installerURL overURL:installationURL error:&error];
 		
-		if( result )
+		if (result)
 		{
-			BOOL	haveOld = [[NSFileManager defaultManager] fileExistsAtPath: oldPath];
-			BOOL	differentFromNew = ![oldPath isEqualToString: installationPath];
+			BOOL	haveOld = [oldURL checkResourceIsReachableAndReturnError:NULL];
+			BOOL	differentFromNew = ![oldURL.path isEqual:installationURL.path];
 			if( haveOld && differentFromNew )
-				[self _movePathToTrash: oldPath];	// On success, trash old copy if there's still one due to renaming.
+				[self _moveItemAtURLToTrash:oldURL];	// On success, trash old copy if there's still one due to renaming.
 		}
+		
 		NSMutableDictionary *mutableInfo = [info mutableCopy];
 		[mutableInfo setObject:[NSNumber numberWithBool:result] forKey:SUInstallerResultKey];
 		[mutableInfo setObject:installationPath forKey:SUInstallerInstallationPathKey];
@@ -74,8 +76,7 @@ static NSString * const SUInstallerInstallationPathKey = @"SUInstallerInstallati
 	#endif
     
     NSString *targetPath = [host installationPath];
-    NSString *tempName = [self temporaryNameForPath:targetPath];
-	NSDictionary *info = [NSDictionary dictionaryWithObjectsAndKeys:path, SUInstallerPathKey, targetPath, SUInstallerTargetPathKey, tempName, SUInstallerTempNameKey, host, SUInstallerHostKey, delegate, SUInstallerDelegateKey, installationPath, SUInstallerInstallationPathKey, nil];
+	NSDictionary *info = [NSDictionary dictionaryWithObjectsAndKeys:path, SUInstallerPathKey, targetPath, SUInstallerTargetPathKey, host, SUInstallerHostKey, delegate, SUInstallerDelegateKey, installationPath, SUInstallerInstallationPathKey, nil];
 	if (synchronously) {
 		[self performInstallationWithInfo:info];
 	} else {

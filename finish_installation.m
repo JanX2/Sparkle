@@ -25,6 +25,7 @@
 	NSTimer			*longInstallationTimer;
 	SUHost			*host;
     BOOL            shouldRelaunch;
+	NSFileManager	*_fileManager;
 }
 
 - (void) parentHasQuit;
@@ -39,8 +40,7 @@
 
 @implementation TerminationListener
 
-- (id) initWithHostPath:(const char *)inhostpath executablePath:(const char *)execpath parentProcessId:(pid_t)ppid folderPath: (const char*)infolderpath shouldRelaunch:(BOOL)relaunch
-		selfPath: (NSString*)inSelfPath
+- (id) initWithHostPath:(const char *)inhostpath executablePath:(const char *)execpath parentProcessId:(pid_t)ppid folderPath: (const char*)infolderpath shouldRelaunch:(BOOL)relaunch selfPath: (NSString*)inSelfPath fileManager:(NSFileManager *)fileManager
 {
 	if( !(self = [super init]) )
 		return nil;
@@ -51,6 +51,7 @@
 	folderpath		= infolderpath;
 	selfPath		= inSelfPath;
     shouldRelaunch  = relaunch;
+	_fileManager	= fileManager;
 	
 	BOOL	alreadyTerminated = (getppid() == 1); // ppid is launchd (1) => parent terminated already
 	
@@ -85,7 +86,7 @@
 {
 	if (![NSRunningApplication runningApplicationWithProcessIdentifier:parentprocessid]) {
 		[self parentHasQuit];
-}
+	}
 }
 
 - (void)showAppIconInDock:(NSTimer *)aTimer;
@@ -101,7 +102,7 @@
     {
         NSString	*appPath = nil;
         if( !folderpath || strcmp(executablepath, hostpath) != 0 )
-            appPath = [[NSFileManager defaultManager] stringWithFileSystemRepresentation:executablepath length:strlen(executablepath)];
+            appPath = [_fileManager stringWithFileSystemRepresentation:executablepath length:strlen(executablepath)];
         else
             appPath = installationPath;
         [[NSWorkspace sharedWorkspace] openFile: appPath];
@@ -110,11 +111,11 @@
     if (folderpath)
     {
         NSError *theError = nil;
-        if( ![SUPlainInstaller _removeFileAtPath: [SUInstaller updateFolder] error: &theError] )
+        if( ![SUPlainInstaller _removeItemAtURL: [SUInstaller updateURL] error: &theError] )
             SULog( @"Couldn't remove update folder: %@.", theError );
     }
 	
-    [[NSFileManager defaultManager] removeItemAtPath: selfPath error: NULL];
+    [_fileManager removeItemAtPath: selfPath error: NULL];
 
 	exit(EXIT_SUCCESS);
 }
@@ -122,7 +123,7 @@
 
 - (void) install
 {
-	NSBundle			*theBundle = [NSBundle bundleWithPath: [[NSFileManager defaultManager] stringWithFileSystemRepresentation: hostpath length:strlen(hostpath)]];
+	NSBundle			*theBundle = [NSBundle bundleWithPath: [_fileManager stringWithFileSystemRepresentation: hostpath length:strlen(hostpath)]];
 	host = [[SUHost alloc] initWithBundle: theBundle];
     installationPath = [[host installationPath] copy];
 	
@@ -135,7 +136,9 @@
         [statusCtl showWindow: self];
     }
 	
-	[SUInstaller installFromUpdateFolder: [[NSFileManager defaultManager] stringWithFileSystemRepresentation: folderpath length: strlen(folderpath)]
+	
+	
+	[SUInstaller installFromUpdateFolder: [_fileManager stringWithFileSystemRepresentation: folderpath length: strlen(folderpath)]
 					overHost: host
             installationPath: installationPath
 					delegate: self synchronously: NO
@@ -167,15 +170,17 @@ int main (int argc, const char * argv[])
 	//ProcessSerialNumber		psn = { 0, kCurrentProcess };
 	//TransformProcessType( &psn, kProcessTransformToForegroundApplication );
 		[[NSApplication sharedApplication] activateIgnoringOtherApps: YES];
+		
+		NSFileManager *fileManager = [[NSFileManager alloc] init];
 			
 		#if 0	// Cmdline tool
 		NSString*	selfPath = nil;
 		if( argv[0][0] == '/' )
-			selfPath = [[NSFileManager defaultManager] stringWithFileSystemRepresentation: argv[0] length: strlen(argv[0])];
+			selfPath = [fileManager stringWithFileSystemRepresentation: argv[0] length: strlen(argv[0])];
 		else
 		{
-			selfPath = [[NSFileManager defaultManager] currentDirectoryPath];
-			selfPath = [selfPath stringByAppendingPathComponent: [[NSFileManager defaultManager] stringWithFileSystemRepresentation: argv[0] length: strlen(argv[0])]];
+			selfPath = [fileManager currentDirectoryPath];
+			selfPath = [selfPath stringByAppendingPathComponent: [fileManager stringWithFileSystemRepresentation: argv[0] length: strlen(argv[0])]];
 		}
 		#else
 		NSString*	selfPath = [[NSBundle mainBundle] bundlePath];
@@ -187,7 +192,8 @@ int main (int argc, const char * argv[])
                                    parentProcessId: (argc > 3) ? atoi(argv[3]) : 0
                                         folderPath: (argc > 4) ? argv[4] : NULL
                                     shouldRelaunch: (argc > 5) ? atoi(argv[5]) : 1
-                                          selfPath: selfPath];
+                                          selfPath: selfPath
+									   fileManager: fileManager];
 		[[NSApplication sharedApplication] run];
 	
 	}

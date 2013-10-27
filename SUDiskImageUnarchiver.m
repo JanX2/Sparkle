@@ -69,20 +69,11 @@
         SULog(@"Extracting %@ as a DMG", self.archivePath);
 
         // get a unique mount point path
-        FSRef tmpRef;
         do {
-            CFUUIDRef uuid = CFUUIDCreate(NULL);
-            if (uuid) {
-                CFStringRef uuidString = CFUUIDCreateString(NULL, uuid);
-                if (uuidString) {
-                    mountPoint = [@"/Volumes" stringByAppendingPathComponent:(__bridge NSString *) uuidString];
-                    CFRelease(uuidString);
-                }
-                CFRelease(uuid);
-            }
+			mountPoint = [@"/Volumes" stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
         }
-        while (noErr == FSPathMakeRefWithOptions((UInt8 *) [mountPoint fileSystemRepresentation], kFSPathMakeRefDoNotFollowLeafSymlink, &tmpRef, NULL));
-
+        while ([[NSURL fileURLWithPath:mountPoint] checkResourceIsReachableAndReturnError:NULL]);
+		
         NSData *promptData = nil;
         if (password) {
             NSString *data = [NSString stringWithFormat:@"%@\nyes\n", password];

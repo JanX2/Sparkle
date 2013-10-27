@@ -25,7 +25,7 @@
 + (NSString *)  appPathInUpdateFolder:(NSString *)updateFolder forHost:(SUHost *)host;
 + (void)		installFromUpdateFolder:(NSString *)updateFolder overHost:(SUHost *)host installationPath:(NSString *)installationPath delegate:(id <SUInstallerDelegate>)delegate synchronously:(BOOL)synchronously versionComparator:(id <SUVersionComparison>)comparator;
 + (void)		finishInstallationToPath:(NSString *)installationPath withResult:(BOOL)result host:(SUHost *)host error:(NSError *)error delegate:(id <SUInstallerDelegate>)delegate;
-+ (NSString*)	updateFolder;
++ (NSURL *)		updateURL;
 @end
 
 #endif
