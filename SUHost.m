@@ -51,19 +51,28 @@
     return [self.bundle bundlePath];
 }
 
+- (NSURL *)bundleURL
+{
+    return [self.bundle bundleURL];
+}
+
 - (NSString *)appSupportPath
 {
-    NSArray *appSupportPaths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
-    NSString *appSupportPath = nil;
-    if (!appSupportPaths || [appSupportPaths count] == 0)
-    {
-        SULog(@"Failed to find app support directory! Using ~/Library/Application Support...");
-        appSupportPath = [@"~/Library/Application Support" stringByExpandingTildeInPath];
-    }
-    else
-        appSupportPath = [appSupportPaths objectAtIndex:0];
-    appSupportPath = [appSupportPath stringByAppendingPathComponent:[self name]];
-    return appSupportPath;
+	NSURL *URL = [self appSupportURL];
+	if (URL) {
+		return [[URL filePathURL] path];
+	}
+	return nil;
+}
+
+- (NSURL *)appSupportURL
+{
+	NSArray *appSupportURLs = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask];
+	if (appSupportURLs && appSupportURLs.count)
+	{
+		return [appSupportURLs[0] URLByAppendingPathComponent:self.name];
+	}
+	return nil;
 }
 
 - (NSString *)installationPath
